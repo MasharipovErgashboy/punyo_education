@@ -246,11 +246,6 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
     } else {
       setActiveLesson(null);
       setActiveTest(null);
-      Alert.alert(
-        "Tabriklaymiz! 🎉",
-        "Siz ushbu modulning barcha darslik va testlarini muvaffaqiyatli yakunladingiz!",
-        [{ text: "Ajoyib", style: "default" }]
-      );
     }
   };
 
