@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 import datetime
 import json
-from .models import CustomUser, Ad, Category, Course, Teacher
+from .models import CustomUser, Ad, Category, Course, Teacher, CourseModule, CourseLesson, CourseTest, CourseCertificate
 
 PENDING_USERS = {}
 
@@ -463,6 +463,12 @@ def courses_view(request):
                     'avatar': avatar_url
                 })
 
+            modules_count = c.modules.count()
+            lessons_count = CourseLesson.objects.filter(module__course=c).count()
+            tests_count = CourseTest.objects.filter(module__course=c).count()
+            cert = c.certificates.first()
+            certificate_pdf_url = request.build_absolute_uri(cert.pdf_file.url) if (cert and cert.pdf_file) else None
+
             data.append({
                 'id': c.id,
                 'category_id': c.category_id,
@@ -480,6 +486,11 @@ def courses_view(request):
                 'price': c.price,
                 'rating': c.rating,
                 'teachers': teachers_list,
+                'modules_count': modules_count,
+                'lessons_count': lessons_count,
+                'tests_count': tests_count,
+                'has_certificate_file': bool(certificate_pdf_url),
+                'certificate_pdf_url': certificate_pdf_url,
                 'created_at': c.created_at.strftime('%d.%m.%Y %H:%M')
             })
         return Response({'success': True, 'count': len(data), 'courses': data}, status=status.HTTP_200_OK)
@@ -702,3 +713,520 @@ def course_detail_view(request, course_id):
         'created_at': c.created_at.strftime('%d.%m.%Y %H:%M')
     }
     return Response({'success': True, 'course': data}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET', 'POST', 'PUT', 'DELETE'])
+@permission_classes([AllowAny])
+def course_modules_view(request):
+    if request.method == 'GET':
+        course_id = request.GET.get('course_id')
+        qs = CourseModule.objects.all()
+        if course_id:
+            qs = qs.filter(course_id=course_id)
+
+        data = []
+        for m in qs:
+            data.append({
+                'id': m.id,
+                'course_id': m.course_id,
+                'course_title': m.course.title if m.course else '',
+                'title': m.title,
+                'lessons_count': m.lessons_count,
+                'tests_count': m.tests_count,
+                'actual_lessons_count': m.lessons.count(),
+                'actual_tests_count': m.tests.count(),
+                'duration': m.duration,
+                'order_index': m.order_index,
+                'created_at': m.created_at.strftime('%d.%m.%Y %H:%M') if m.created_at else ''
+            })
+        return Response({'success': True, 'count': len(data), 'modules': data}, status=status.HTTP_200_OK)
+
+    elif request.method == 'POST':
+        course_id = request.data.get('course_id')
+        title = (request.data.get('title') or '').strip()
+        lessons_count = int(request.data.get('lessons_count') or 0)
+        tests_count = int(request.data.get('tests_count') or 0)
+        duration = (request.data.get('duration') or '0 soat').strip()
+        order_index = int(request.data.get('order_index') or (CourseModule.objects.filter(course_id=course_id).count() + 1))
+
+        if not course_id:
+            return Response({'success': False, 'message': 'Kurs tanlanishi shart!'}, status=status.HTTP_400_BAD_REQUEST)
+        if not title:
+            return Response({'success': False, 'message': 'Modul nomi kiritilishi shart!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        course = Course.objects.filter(id=course_id).first()
+        if not course:
+            return Response({'success': False, 'message': 'Kurs topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+        mod = CourseModule.objects.create(
+            course=course,
+            title=title,
+            lessons_count=lessons_count,
+            tests_count=tests_count,
+            duration=duration,
+            order_index=order_index
+        )
+        return Response({
+            'success': True,
+            'message': 'Modul muvaffaqiyatli yaratildi!',
+            'module': {
+                'id': mod.id,
+                'course_id': mod.course_id,
+                'title': mod.title,
+                'lessons_count': mod.lessons_count,
+                'tests_count': mod.tests_count,
+                'duration': mod.duration,
+                'order_index': mod.order_index,
+            }
+        }, status=status.HTTP_201_CREATED)
+
+    elif request.method == 'PUT':
+        mod_id = request.data.get('id') or request.GET.get('id')
+        if not mod_id:
+            return Response({'success': False, 'message': 'Modul ID ko\'rsatilmadi!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        mod = CourseModule.objects.filter(id=mod_id).first()
+        if not mod:
+            return Response({'success': False, 'message': 'Modul topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+        title = request.data.get('title')
+        if title is not None:
+            mod.title = title.strip()
+        if 'lessons_count' in request.data:
+            mod.lessons_count = int(request.data.get('lessons_count') or 0)
+        if 'tests_count' in request.data:
+            mod.tests_count = int(request.data.get('tests_count') or 0)
+        if 'duration' in request.data:
+            mod.duration = (request.data.get('duration') or '').strip()
+        if 'order_index' in request.data:
+            mod.order_index = int(request.data.get('order_index') or mod.order_index)
+
+        mod.save()
+        return Response({
+            'success': True,
+            'message': 'Modul muvaffaqiyatli yangilandi!',
+            'module': {
+                'id': mod.id,
+                'course_id': mod.course_id,
+                'title': mod.title,
+                'lessons_count': mod.lessons_count,
+                'tests_count': mod.tests_count,
+                'duration': mod.duration,
+                'order_index': mod.order_index,
+            }
+        }, status=status.HTTP_200_OK)
+
+    elif request.method == 'DELETE':
+        mod_id = request.GET.get('id') or request.data.get('id')
+        if not mod_id:
+            return Response({'success': False, 'message': 'Modul ID ko\'rsatilmadi!'}, status=status.HTTP_400_BAD_REQUEST)
+        mod = CourseModule.objects.filter(id=mod_id).first()
+        if mod:
+            mod.delete()
+            return Response({'success': True, 'message': 'Modul o\'chirildi!'})
+        return Response({'success': False, 'message': 'Modul topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET', 'POST', 'PUT', 'DELETE'])
+@permission_classes([AllowAny])
+def course_lessons_view(request):
+    if request.method == 'GET':
+        module_id = request.GET.get('module_id')
+        course_id = request.GET.get('course_id')
+        qs = CourseLesson.objects.all().select_related('module', 'module__course')
+        if module_id:
+            qs = qs.filter(module_id=module_id)
+        elif course_id:
+            qs = qs.filter(module__course_id=course_id)
+
+        data = []
+        for l in qs:
+            data.append({
+                'id': l.id,
+                'module_id': l.module_id,
+                'module_title': l.module.title if l.module else '',
+                'course_id': l.module.course_id if l.module else None,
+                'title': l.title,
+                'duration': l.duration,
+                'youtube_url': l.youtube_url,
+                'description': l.description,
+                'order_index': l.order_index,
+                'created_at': l.created_at.strftime('%d.%m.%Y %H:%M') if l.created_at else ''
+            })
+        return Response({'success': True, 'count': len(data), 'lessons': data}, status=status.HTTP_200_OK)
+
+    elif request.method == 'POST':
+        lessons_data = request.data.get('lessons')
+        module_id = request.data.get('module_id')
+
+        # Batch creation support
+        if lessons_data:
+            if isinstance(lessons_data, str):
+                try:
+                    lessons_data = json.loads(lessons_data)
+                except Exception:
+                    lessons_data = []
+
+            if not isinstance(lessons_data, list):
+                lessons_data = [lessons_data]
+
+            created_lessons = []
+            for item in lessons_data:
+                m_id = item.get('module_id') or module_id
+                mod = CourseModule.objects.filter(id=m_id).first()
+                if not mod:
+                    continue
+                title = (item.get('title') or '').strip()
+                if not title:
+                    continue
+                duration = (item.get('duration') or '15 daqiqa').strip()
+                youtube_url = (item.get('youtube_url') or '').strip()
+                description = (item.get('description') or '').strip()
+                order_index = int(item.get('order_index') or (mod.lessons.count() + 1))
+
+                lesson = CourseLesson.objects.create(
+                    module=mod,
+                    title=title,
+                    duration=duration,
+                    youtube_url=youtube_url,
+                    description=description,
+                    order_index=order_index
+                )
+                created_lessons.append(lesson.id)
+
+            if module_id:
+                m = CourseModule.objects.filter(id=module_id).first()
+                if m:
+                    m.lessons_count = m.lessons.count()
+                    m.save(update_fields=['lessons_count'])
+
+            return Response({
+                'success': True,
+                'message': f"{len(created_lessons)} ta video darslik muvaffaqiyatli qo'shildi!",
+                'count': len(created_lessons)
+            }, status=status.HTTP_201_CREATED)
+
+        # Single lesson creation
+        if not module_id:
+            return Response({'success': False, 'message': 'Modul tanlanishi shart!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        mod = CourseModule.objects.filter(id=module_id).first()
+        if not mod:
+            return Response({'success': False, 'message': 'Modul topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+        title = (request.data.get('title') or '').strip()
+        if not title:
+            return Response({'success': False, 'message': 'Video nomi kiritilishi shart!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        duration = (request.data.get('duration') or '15 daqiqa').strip()
+        youtube_url = (request.data.get('youtube_url') or '').strip()
+        description = (request.data.get('description') or '').strip()
+        order_index = int(request.data.get('order_index') or (mod.lessons.count() + 1))
+
+        lesson = CourseLesson.objects.create(
+            module=mod,
+            title=title,
+            duration=duration,
+            youtube_url=youtube_url,
+            description=description,
+            order_index=order_index
+        )
+        mod.lessons_count = mod.lessons.count()
+        mod.save(update_fields=['lessons_count'])
+
+        return Response({
+            'success': True,
+            'message': 'Video darslik muvaffaqiyatli yaratildi!',
+            'lesson': {
+                'id': lesson.id,
+                'module_id': lesson.module_id,
+                'title': lesson.title,
+                'duration': lesson.duration,
+                'youtube_url': lesson.youtube_url,
+                'description': lesson.description,
+                'order_index': lesson.order_index
+            }
+        }, status=status.HTTP_201_CREATED)
+
+    elif request.method == 'PUT':
+        lesson_id = request.data.get('id') or request.GET.get('id')
+        lesson = CourseLesson.objects.filter(id=lesson_id).first()
+        if not lesson:
+            return Response({'success': False, 'message': 'Darslik topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+        if 'title' in request.data:
+            lesson.title = (request.data.get('title') or '').strip()
+        if 'duration' in request.data:
+            lesson.duration = (request.data.get('duration') or '').strip()
+        if 'youtube_url' in request.data:
+            lesson.youtube_url = (request.data.get('youtube_url') or '').strip()
+        if 'description' in request.data:
+            lesson.description = (request.data.get('description') or '').strip()
+        if 'order_index' in request.data:
+            lesson.order_index = int(request.data.get('order_index') or lesson.order_index)
+
+        lesson.save()
+        return Response({'success': True, 'message': 'Darslik yangilandi!'}, status=status.HTTP_200_OK)
+
+    elif request.method == 'DELETE':
+        lesson_id = request.GET.get('id') or request.data.get('id')
+        lesson = CourseLesson.objects.filter(id=lesson_id).first()
+        if lesson:
+            mod = lesson.module
+            lesson.delete()
+            if mod:
+                mod.lessons_count = mod.lessons.count()
+                mod.save(update_fields=['lessons_count'])
+            return Response({'success': True, 'message': 'Darslik o\'chirildi!'})
+        return Response({'success': False, 'message': 'Darslik topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET', 'POST', 'PUT', 'DELETE'])
+@permission_classes([AllowAny])
+def course_tests_view(request):
+    if request.method == 'GET':
+        module_id = request.GET.get('module_id')
+        course_id = request.GET.get('course_id')
+        qs = CourseTest.objects.all().select_related('module', 'module__course')
+        if module_id:
+            qs = qs.filter(module_id=module_id)
+        elif course_id:
+            qs = qs.filter(module__course_id=course_id)
+
+        data = []
+        for t in qs:
+            audio_url = request.build_absolute_uri(t.audio_file.url) if t.audio_file else None
+            data.append({
+                'id': t.id,
+                'module_id': t.module_id,
+                'module_title': t.module.title if t.module else '',
+                'course_id': t.module.course_id if t.module else None,
+                'title': t.title,
+                'test_type': t.test_type,
+                'question': t.question,
+                'audio_url': audio_url,
+                'reading_text': t.reading_text,
+                'options': t.options or [],
+                'correct_answer': t.correct_answer,
+                'tg_bot_link': t.tg_bot_link,
+                'tg_channel': t.tg_channel,
+                'order_index': t.order_index,
+                'created_at': t.created_at.strftime('%d.%m.%Y %H:%M') if t.created_at else ''
+            })
+        return Response({'success': True, 'count': len(data), 'tests': data}, status=status.HTTP_200_OK)
+
+    elif request.method == 'POST':
+        module_id = request.data.get('module_id')
+        if not module_id:
+            return Response({'success': False, 'message': 'Modul tanlanishi shart!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        mod = CourseModule.objects.filter(id=module_id).first()
+        if not mod:
+            return Response({'success': False, 'message': 'Modul topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+        title = (request.data.get('title') or '').strip()
+        if not title:
+            return Response({'success': False, 'message': 'Test nomi kiritilishi shart!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        test_type = request.data.get('test_type', 'abcd').strip()
+        question = (request.data.get('question') or '').strip()
+        reading_text = (request.data.get('reading_text') or '').strip()
+        correct_answer = (request.data.get('correct_answer') or '').strip()
+        tg_bot_link = (request.data.get('tg_bot_link') or '').strip()
+        tg_channel = (request.data.get('tg_channel') or '').strip()
+        order_index = int(request.data.get('order_index') or (mod.tests.count() + 1))
+
+        # Audio file upload (for listening)
+        audio_file = request.FILES.get('audio') or request.FILES.get('audio_file')
+
+        # Options parsing
+        options_raw = request.data.get('options')
+        options = []
+        if options_raw:
+            if isinstance(options_raw, str):
+                try:
+                    options = json.loads(options_raw)
+                except Exception:
+                    options = [opt.strip() for opt in options_raw.split(',') if opt.strip()]
+            elif isinstance(options_raw, list):
+                options = options_raw
+
+        test_obj = CourseTest.objects.create(
+            module=mod,
+            title=title,
+            test_type=test_type,
+            question=question,
+            audio_file=audio_file,
+            reading_text=reading_text,
+            options=options,
+            correct_answer=correct_answer,
+            tg_bot_link=tg_bot_link,
+            tg_channel=tg_channel,
+            order_index=order_index
+        )
+
+        mod.tests_count = mod.tests.count()
+        mod.save(update_fields=['tests_count'])
+
+        audio_url = request.build_absolute_uri(test_obj.audio_file.url) if test_obj.audio_file else None
+        return Response({
+            'success': True,
+            'message': 'Test muvaffaqiyatli yaratildi!',
+            'test': {
+                'id': test_obj.id,
+                'module_id': test_obj.module_id,
+                'title': test_obj.title,
+                'test_type': test_obj.test_type,
+                'question': test_obj.question,
+                'audio_url': audio_url,
+                'reading_text': test_obj.reading_text,
+                'options': test_obj.options,
+                'correct_answer': test_obj.correct_answer,
+                'tg_bot_link': test_obj.tg_bot_link,
+                'tg_channel': test_obj.tg_channel,
+                'order_index': test_obj.order_index
+            }
+        }, status=status.HTTP_201_CREATED)
+
+    elif request.method == 'PUT':
+        test_id = request.data.get('id') or request.GET.get('id')
+        test_obj = CourseTest.objects.filter(id=test_id).first()
+        if not test_obj:
+            return Response({'success': False, 'message': 'Test topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+        if 'title' in request.data:
+            test_obj.title = (request.data.get('title') or '').strip()
+        if 'test_type' in request.data:
+            test_obj.test_type = request.data.get('test_type').strip()
+        if 'question' in request.data:
+            test_obj.question = (request.data.get('question') or '').strip()
+        if 'reading_text' in request.data:
+            test_obj.reading_text = (request.data.get('reading_text') or '').strip()
+        if 'correct_answer' in request.data:
+            test_obj.correct_answer = (request.data.get('correct_answer') or '').strip()
+        if 'tg_bot_link' in request.data:
+            test_obj.tg_bot_link = (request.data.get('tg_bot_link') or '').strip()
+        if 'tg_channel' in request.data:
+            test_obj.tg_channel = (request.data.get('tg_channel') or '').strip()
+        if 'order_index' in request.data:
+            test_obj.order_index = int(request.data.get('order_index') or test_obj.order_index)
+
+        audio_file = request.FILES.get('audio') or request.FILES.get('audio_file')
+        if audio_file:
+            test_obj.audio_file = audio_file
+
+        options_raw = request.data.get('options')
+        if options_raw is not None:
+            if isinstance(options_raw, str):
+                try:
+                    test_obj.options = json.loads(options_raw)
+                except Exception:
+                    test_obj.options = [opt.strip() for opt in options_raw.split(',') if opt.strip()]
+            elif isinstance(options_raw, list):
+                test_obj.options = options_raw
+
+        test_obj.save()
+        return Response({'success': True, 'message': 'Test muvaffaqiyatli yangilandi!'}, status=status.HTTP_200_OK)
+
+    elif request.method == 'DELETE':
+        test_id = request.GET.get('id') or request.data.get('id')
+        test_obj = CourseTest.objects.filter(id=test_id).first()
+        if test_obj:
+            mod = test_obj.module
+            test_obj.delete()
+            if mod:
+                mod.tests_count = mod.tests.count()
+                mod.save(update_fields=['tests_count'])
+            return Response({'success': True, 'message': 'Test o\'chirildi!'})
+        return Response({'success': False, 'message': 'Test topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET', 'POST', 'DELETE'])
+@permission_classes([AllowAny])
+def course_certificates_view(request):
+    if request.method == 'GET':
+        course_id = request.GET.get('course_id')
+        if not course_id:
+            return Response({'success': False, 'message': 'Kurs ID ko\'rsatilmadi!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        cert = CourseCertificate.objects.filter(course_id=course_id).first()
+        if not cert:
+            return Response({'success': True, 'certificate': None}, status=status.HTTP_200_OK)
+
+        pdf_url = request.build_absolute_uri(cert.pdf_file.url) if cert.pdf_file else None
+        pdf_name = cert.pdf_file.name.split('/')[-1] if cert.pdf_file else ''
+
+        return Response({
+            'success': True,
+            'certificate': {
+                'id': cert.id,
+                'course_id': cert.course_id,
+                'title': cert.title,
+                'pdf_url': pdf_url,
+                'pdf_name': pdf_name,
+                'created_at': cert.created_at.strftime('%d.%m.%Y %H:%M') if cert.created_at else ''
+            }
+        }, status=status.HTTP_200_OK)
+
+    elif request.method == 'POST':
+        course_id = request.data.get('course_id')
+        if not course_id:
+            return Response({'success': False, 'message': 'Kurs ID ko\'rsatilmadi!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        course = Course.objects.filter(id=course_id).first()
+        if not course:
+            return Response({'success': False, 'message': 'Kurs topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+        pdf_file = request.FILES.get('pdf') or request.FILES.get('pdf_file')
+        if not pdf_file:
+            return Response({'success': False, 'message': 'PDF fayl yuklanishi shart!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        title = (request.data.get('title') or 'Sertifikat').strip()
+
+        cert = CourseCertificate.objects.filter(course=course).first()
+        if cert:
+            cert.title = title
+            cert.pdf_file = pdf_file
+            cert.save()
+        else:
+            cert = CourseCertificate.objects.create(
+                course=course,
+                title=title,
+                pdf_file=pdf_file
+            )
+
+        course.has_certificate = True
+        course.save(update_fields=['has_certificate'])
+
+        pdf_url = request.build_absolute_uri(cert.pdf_file.url) if cert.pdf_file else None
+        pdf_name = cert.pdf_file.name.split('/')[-1] if cert.pdf_file else ''
+
+        return Response({
+            'success': True,
+            'message': 'Sertifikat muvaffaqiyatli yuklandi va saqlandi!',
+            'certificate': {
+                'id': cert.id,
+                'course_id': cert.course_id,
+                'title': cert.title,
+                'pdf_url': pdf_url,
+                'pdf_name': pdf_name,
+                'created_at': cert.created_at.strftime('%d.%m.%Y %H:%M') if cert.created_at else ''
+            }
+        }, status=status.HTTP_201_CREATED)
+
+    elif request.method == 'DELETE':
+        cert_id = request.GET.get('id') or request.data.get('id')
+        course_id = request.GET.get('course_id') or request.data.get('course_id')
+
+        cert = None
+        if cert_id:
+            cert = CourseCertificate.objects.filter(id=cert_id).first()
+        elif course_id:
+            cert = CourseCertificate.objects.filter(course_id=course_id).first()
+
+        if cert:
+            course = cert.course
+            cert.delete()
+            return Response({'success': True, 'message': 'Sertifikat muvaffaqiyatli o\'chirildi!'})
+        return Response({'success': False, 'message': 'Sertifikat topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+

@@ -68,3 +68,77 @@ class Teacher(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.role})"
+
+
+class CourseModule(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='modules')
+    title = models.CharField(max_length=255)
+    lessons_count = models.IntegerField(default=0)
+    tests_count = models.IntegerField(default=0)
+    duration = models.CharField(max_length=100, default='0 soat')
+    order_index = models.IntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order_index', 'id']
+
+    def __str__(self):
+        return f"{self.course.title} - {self.title}"
+
+
+class CourseLesson(models.Model):
+    module = models.ForeignKey(CourseModule, on_delete=models.CASCADE, related_name='lessons')
+    title = models.CharField(max_length=255)
+    duration = models.CharField(max_length=100, default='15 daqiqa')
+    youtube_url = models.CharField(max_length=500, blank=True, default='')
+    description = models.TextField(blank=True, default='')
+    order_index = models.IntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order_index', 'id']
+
+    def __str__(self):
+        return f"{self.module.title} - {self.title}"
+
+
+class CourseTest(models.Model):
+    TEST_TYPES = (
+        ('listening', 'Eshitish'),
+        ('reading', 'O\'qish'),
+        ('writing', 'Yozish'),
+        ('abcd', 'ABCD'),
+        ('speaking', 'Gapirish'),
+    )
+    module = models.ForeignKey(CourseModule, on_delete=models.CASCADE, related_name='tests')
+    title = models.CharField(max_length=255)
+    test_type = models.CharField(max_length=50, choices=TEST_TYPES, default='abcd')
+    question = models.TextField(blank=True, default='')
+    audio_file = models.FileField(upload_to='tests/audio/', blank=True, null=True)
+    reading_text = models.TextField(blank=True, default='')
+    options = models.JSONField(default=list, blank=True)
+    correct_answer = models.CharField(max_length=255, blank=True, default='')
+    tg_bot_link = models.CharField(max_length=500, blank=True, default='')
+    tg_channel = models.CharField(max_length=255, blank=True, default='')
+    order_index = models.IntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order_index', 'id']
+
+    def __str__(self):
+        return f"[{self.test_type}] {self.title}"
+
+
+class CourseCertificate(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='certificates')
+    title = models.CharField(max_length=255, default='Sertifikat')
+    pdf_file = models.FileField(upload_to='certificates/templates/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.course.title} - {self.title}"
+
