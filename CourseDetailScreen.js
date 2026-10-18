@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
+import YoutubePlayer from 'react-native-youtube-iframe';
 import ReviewsScreen from './ReviewsScreen';
 
 const { width } = Dimensions.get('window');
@@ -26,6 +26,8 @@ export default function CourseDetailScreen({ course, onBack }) {
   const insets = useSafeAreaInsets();
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [courseData, setCourseData] = useState(course || {});
+  const [playerError, setPlayerError] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
     setCourseData(course || {});
@@ -59,29 +61,8 @@ export default function CourseDetailScreen({ course, onBack }) {
     return getYouTubeVideoId(courseData?.intro_video_url);
   }, [courseData?.intro_video_url]);
 
-  const embedHtml = useMemo(() => {
-    if (!youtubeId) return '';
-    return `<!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body { width: 100%; height: 100%; background-color: #000; overflow: hidden; }
-      .wrapper { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-      iframe { width: 100%; height: 100%; border: none; }
-    </style>
-  </head>
-  <body>
-    <div class="wrapper">
-      <iframe
-        src="https://www.youtube.com/embed/${youtubeId}?playsinline=1&modestbranding=1&rel=0&controls=1"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowfullscreen
-      ></iframe>
-    </div>
-  </body>
-</html>`;
+  useEffect(() => {
+    setPlayerError(false);
   }, [youtubeId]);
 
   const handlePlayVideo = () => {
@@ -113,30 +94,46 @@ export default function CourseDetailScreen({ course, onBack }) {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
-        {/* Video Container (YouTube Player or Cover Image) */}
+        {/* Video Container (YouTube Player, Error Fallback, or Cover Image) */}
         <View style={styles.videoContainer}>
-          {youtubeId ? (
-            <WebView
-              style={styles.webView}
-              javaScriptEnabled={true}
-              domStorageEnabled={true}
-              allowsFullscreenVideo={true}
-              allowsInlineMediaPlayback={true}
-              mediaPlaybackRequiresUserAction={false}
-              originWhitelist={['*']}
-              source={{
-                html: embedHtml,
-                baseUrl: 'https://www.youtube.com'
+          {youtubeId && !playerError ? (
+            <YoutubePlayer
+              height={225}
+              width={width}
+              videoId={youtubeId}
+              play={isPlaying}
+              onChangeState={(state) => {
+                if (state === 'ended') {
+                  setIsPlaying(false);
+                }
               }}
-              scrollEnabled={false}
-              bounces={false}
-              startInLoadingState={true}
-              renderLoading={() => (
-                <View style={styles.videoLoadingContainer}>
-                  <ActivityIndicator size="large" color="#7c3aed" />
-                </View>
-              )}
+              onError={(e) => {
+                console.log("YouTube Player Error:", e);
+                setPlayerError(true);
+              }}
+              webViewProps={{
+                androidLayerType: 'hardware',
+                allowsInlineMediaPlayback: true,
+              }}
+              initialPlayerParams={{
+                preventFullScreen: false,
+                controls: true,
+                modestbranding: true,
+                rel: false,
+              }}
             />
+          ) : playerError ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle-outline" size={38} color="#F59E0B" />
+              <Text style={styles.errorTitle}>Video ilova ichida cheklangan</Text>
+              <Text style={styles.errorSub}>
+                Muallif ushbu videoni boshqa ilovalarda ko'rsatishni cheklagan bo'lishi mumkin.
+              </Text>
+              <TouchableOpacity style={styles.errorWatchBtn} onPress={handlePlayVideo} activeOpacity={0.8}>
+                <Ionicons name="logo-youtube" size={18} color="#FFF" style={{ marginRight: 6 }} />
+                <Text style={styles.errorWatchText}>YouTube ilovasida ko'rish</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <View style={{ flex: 1 }}>
               <Image 
@@ -323,6 +320,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     position: 'relative',
     overflow: 'hidden',
+  },
+  errorContainer: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  errorTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#F8FAFC',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  errorSub: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 4,
+    marginBottom: 12,
+    textAlign: 'center',
+    lineHeight: 17,
+  },
+  errorWatchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 4,
+  },
+  errorWatchText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   webView: {
     width: '100%',
