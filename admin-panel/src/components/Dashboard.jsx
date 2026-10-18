@@ -156,6 +156,8 @@ export default function Dashboard({ user, onLogout }) {
     correct_answer: 'A',
     tg_bot_link: '',
     tg_channel: '',
+    duration_minutes: 15,
+    passing_percentage: 60,
     order_index: 1,
   };
   const [testForm, setTestForm] = useState(initialTestForm);
@@ -916,6 +918,8 @@ export default function Dashboard({ user, onLogout }) {
       correct_answer: 'A',
       tg_bot_link: '',
       tg_channel: '',
+      duration_minutes: 15,
+      passing_percentage: 60,
       order_index: courseTests.length + 1,
     });
     setInternalSubView('create-test');
@@ -938,6 +942,8 @@ export default function Dashboard({ user, onLogout }) {
       correct_answer: test.correct_answer || 'A',
       tg_bot_link: test.tg_bot_link || '',
       tg_channel: test.tg_channel || '',
+      duration_minutes: test.duration_minutes || 15,
+      passing_percentage: test.passing_percentage || 60,
       order_index: test.order_index || 1,
     });
     setInternalSubView('edit-test');
@@ -968,6 +974,8 @@ export default function Dashboard({ user, onLogout }) {
     formData.append('correct_answer', testForm.correct_answer);
     formData.append('tg_bot_link', testForm.tg_bot_link);
     formData.append('tg_channel', testForm.tg_channel);
+    formData.append('duration_minutes', testForm.duration_minutes || 15);
+    formData.append('passing_percentage', testForm.passing_percentage || 60);
     formData.append('order_index', testForm.order_index);
 
     if (testForm.audio_file) {
@@ -2463,14 +2471,48 @@ export default function Dashboard({ user, onLogout }) {
                                 />
                               </div>
 
-                              <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Navbat Raqami (Ketma-ketlik)</label>
-                                <input 
-                                  type="number" 
-                                  className="modern-input"
-                                  value={testForm.order_index}
-                                  onChange={(e) => setTestForm({ ...testForm, order_index: e.target.value })}
-                                />
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                  <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+                                    <Clock size={14} color="#7C3AED" /> Test Vaqti (Daqiqa) *
+                                  </label>
+                                  <input 
+                                    type="number" 
+                                    min="1"
+                                    max="300"
+                                    className="modern-input"
+                                    placeholder="Masalan: 15"
+                                    value={testForm.duration_minutes}
+                                    onChange={(e) => setTestForm({ ...testForm, duration_minutes: e.target.value })}
+                                    required
+                                  />
+                                </div>
+
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                  <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+                                    <Award size={14} color="#D97706" /> O'tish Bali (%) *
+                                  </label>
+                                  <input 
+                                    type="number" 
+                                    min="1"
+                                    max="100"
+                                    className="modern-input"
+                                    placeholder="Masalan: 60"
+                                    value={testForm.passing_percentage}
+                                    onChange={(e) => setTestForm({ ...testForm, passing_percentage: e.target.value })}
+                                    required
+                                  />
+                                </div>
+
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                  <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Navbat Raqami (Ketma-ketlik)</label>
+                                  <input 
+                                    type="number" 
+                                    className="modern-input"
+                                    value={testForm.order_index}
+                                    onChange={(e) => setTestForm({ ...testForm, order_index: e.target.value })}
+                                  />
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -3256,6 +3298,12 @@ export default function Dashboard({ user, onLogout }) {
                                               {typeLabelMap[item.test_type] || item.test_type}
                                             </span>
                                             <span style={{ fontSize: 12, color: '#64748B' }}>Modul: {item.module_title}</span>
+                                            <span style={{ fontSize: 11, background: '#EDE9FE', color: '#6D28D9', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>
+                                              ⏱ {item.duration_minutes || 15} daqiqa
+                                            </span>
+                                            <span style={{ fontSize: 11, background: '#FEF3C7', color: '#B45309', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>
+                                              🎯 O'tish: {item.passing_percentage || 60}%
+                                            </span>
                                           </div>
                                           <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', marginTop: 4 }}>
                                             {item.title}

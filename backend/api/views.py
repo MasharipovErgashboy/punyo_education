@@ -1014,6 +1014,8 @@ def course_tests_view(request):
                 'correct_answer': t.correct_answer,
                 'tg_bot_link': t.tg_bot_link,
                 'tg_channel': t.tg_channel,
+                'duration_minutes': t.duration_minutes or 15,
+                'passing_percentage': t.passing_percentage or 60,
                 'order_index': t.order_index,
                 'created_at': t.created_at.strftime('%d.%m.%Y %H:%M') if t.created_at else ''
             })
@@ -1038,6 +1040,8 @@ def course_tests_view(request):
         correct_answer = (request.data.get('correct_answer') or '').strip()
         tg_bot_link = (request.data.get('tg_bot_link') or '').strip()
         tg_channel = (request.data.get('tg_channel') or '').strip()
+        duration_minutes = int(request.data.get('duration_minutes') or 15)
+        passing_percentage = int(request.data.get('passing_percentage') or 60)
         order_index = int(request.data.get('order_index') or (mod.tests.count() + 1))
 
         # Audio file upload (for listening)
@@ -1066,6 +1070,8 @@ def course_tests_view(request):
             correct_answer=correct_answer,
             tg_bot_link=tg_bot_link,
             tg_channel=tg_channel,
+            duration_minutes=duration_minutes,
+            passing_percentage=passing_percentage,
             order_index=order_index
         )
 
@@ -1088,6 +1094,8 @@ def course_tests_view(request):
                 'correct_answer': test_obj.correct_answer,
                 'tg_bot_link': test_obj.tg_bot_link,
                 'tg_channel': test_obj.tg_channel,
+                'duration_minutes': test_obj.duration_minutes,
+                'passing_percentage': test_obj.passing_percentage,
                 'order_index': test_obj.order_index
             }
         }, status=status.HTTP_201_CREATED)
@@ -1112,6 +1120,10 @@ def course_tests_view(request):
             test_obj.tg_bot_link = (request.data.get('tg_bot_link') or '').strip()
         if 'tg_channel' in request.data:
             test_obj.tg_channel = (request.data.get('tg_channel') or '').strip()
+        if 'duration_minutes' in request.data:
+            test_obj.duration_minutes = int(request.data.get('duration_minutes') or 15)
+        if 'passing_percentage' in request.data:
+            test_obj.passing_percentage = int(request.data.get('passing_percentage') or 60)
         if 'order_index' in request.data:
             test_obj.order_index = int(request.data.get('order_index') or test_obj.order_index)
 

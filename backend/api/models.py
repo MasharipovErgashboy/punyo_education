@@ -120,6 +120,8 @@ class CourseTest(models.Model):
     correct_answer = models.CharField(max_length=255, blank=True, default='')
     tg_bot_link = models.CharField(max_length=500, blank=True, default='')
     tg_channel = models.CharField(max_length=255, blank=True, default='')
+    duration_minutes = models.IntegerField(default=15, help_text="Test davomiyligi (daqiqa)")
+    passing_percentage = models.IntegerField(default=60, help_text="O'tish bali (%)")
     order_index = models.IntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
 

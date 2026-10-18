@@ -51,18 +51,22 @@ export default function TestRunnerScreen({ testTitle, testData, onBack, onComple
         correctOption: (testData.correct_answer || 'A').toUpperCase().trim(),
         explanation: testData.reading_text || '',
         audioUrl: testData.audio_url || null,
+        reading_text: testData.reading_text || '',
+        test_type: testData.test_type,
       }];
     }
-    return mockQuestions;
+    return mockQuestions.slice(0, 5);
   }, [testData]);
 
-  const isRealData = !!(testData?.question || (testData?.questions && testData.questions.length > 0));
   const totalCount = questionsList.length;
+  const durationMinutes = testData?.duration_minutes ? parseInt(testData.duration_minutes, 10) : 15;
+  const initialSeconds = durationMinutes * 60;
+  const passingPercentage = testData?.passing_percentage ? parseInt(testData.passing_percentage, 10) : 60;
 
-  const [currentIdx, setCurrentIdx] = useState(isRealData ? 0 : 11);
-  const [answers, setAnswers] = useState(isRealData ? {} : { 11: 'A' });
-  const [bookmarks, setBookmarks] = useState(isRealData ? [] : [13, 16]);
-  const [timeLeft, setTimeLeft] = useState(35 * 60 + 42); // 35:42 in seconds
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [bookmarks, setBookmarks] = useState([]);
+  const [timeLeft, setTimeLeft] = useState(initialSeconds);
   const [isPaused, setIsPaused] = useState(false);
   const [isGridExpanded, setIsGridExpanded] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -71,7 +75,14 @@ export default function TestRunnerScreen({ testTitle, testData, onBack, onComple
     let timer;
     if (!isPaused && timeLeft > 0 && !isCompleted) {
       timer = setInterval(() => {
-        setTimeLeft(prev => prev - 1);
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            setIsCompleted(true);
+            return 0;
+          }
+          return prev - 1;
+        });
       }, 1000);
     }
     return () => clearInterval(timer);
@@ -113,34 +124,63 @@ export default function TestRunnerScreen({ testTitle, testData, onBack, onComple
     let correctCount = 0;
     questionsList.forEach((q, idx) => {
       const userAns = answers[idx];
-      const correct = q.correctOption;
-      if (userAns && String(userAns).toUpperCase() === String(correct).toUpperCase()) {
+      const correct = (q.correctOption || q.correct_answer || 'A').toString().toUpperCase().trim();
+      if (userAns && String(userAns).toUpperCase() === correct) {
         correctCount++;
       }
     });
 
-    const calculatedScore = isRealData ? correctCount * 10 : 18;
-    const totalScore = isRealData ? totalCount * 10 : 25;
-    const passThreshold = isRealData ? Math.ceil(totalCount * 0.6) * 10 : 15;
+    const score = correctCount * 10;
+    const totalScore = totalCount * 10;
+    const percentage = Math.round((correctCount / totalCount) * 100);
+    const isPassed = percentage >= passingPercentage;
+    const passingScoreCount = Math.ceil(totalCount * (passingPercentage / 100));
+    const timeTakenStr = formatTime(Math.max(0, initialSeconds - timeLeft));
+    const totalTimeStr = formatTime(initialSeconds);
 
     return (
       <TestResultScreen
-        score={calculatedScore}
+        score={score}
         total={totalScore}
-        passingScore={passThreshold}
-        correctCount={isRealData ? correctCount : 18}
-        wrongCount={isRealData ? totalCount - correctCount : 5}
-        skippedCount={isRealData ? totalCount - Object.keys(answers).length : 2}
-        timeTaken="02:15"
-        totalTime="10:00"
+        passingScore={passingScoreCount * 10}
+        passingPercentage={passingPercentage}
+        correctCount={correctCount}
+        wrongCount={totalCount - correctCount}
+        skippedCount={totalCount - Object.keys(answers).length}
+        timeTaken={timeTakenStr}
+        totalTime={totalTimeStr}
+        isPassed={isPassed}
+        questions={questionsList}
+        userAnswers={answers}
+        testTitle={testTitle || testData?.title || "Test natijasi"}
         onRetry={() => {
           setAnswers({});
           setCurrentIdx(0);
+          setTimeLeft(initialSeconds);
           setIsCompleted(false);
         }}
-        onOtherTests={() => {
-          if (onComplete) onComplete();
-          else onBack();
+        onOtherTests={onBack}
+        onComplete={() => {
+          if (onComplete) {
+            onComplete({
+              testId: testData?.id,
+              realId: testData?.realId || testData?.id,
+              title: testTitle || testData?.title,
+              score,
+              total: totalScore,
+              correctCount,
+              totalCount,
+              percentage,
+              isPassed,
+              timeTaken: timeTakenStr,
+              passingPercentage,
+              answers,
+              questions: questionsList,
+              completedAt: new Date().toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+            });
+          } else {
+            onBack();
+          }
         }}
       />
     );
@@ -201,6 +241,23 @@ export default function TestRunnerScreen({ testTitle, testData, onBack, onComple
             </View>
           </View>
           
+          {question.reading_text ? (
+            <View style={{ backgroundColor: '#F8FAFC', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                <Ionicons name="book-outline" size={16} color="#7C3AED" style={{ marginRight: 6 }} />
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#7C3AED' }}>O'qish matni:</Text>
+              </View>
+              <Text style={{ fontSize: 13, color: '#334155', lineHeight: 20 }}>{question.reading_text}</Text>
+            </View>
+          ) : null}
+
+          {question.audioUrl ? (
+            <View style={{ backgroundColor: '#FFF7ED', borderRadius: 12, padding: 10, borderWidth: 1, borderColor: '#FED7AA', marginBottom: 12, flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="headset" size={18} color="#EA580C" style={{ marginRight: 8 }} />
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#9A3412' }}>Audio fayl biriktirilgan (Tinglash testi)</Text>
+            </View>
+          ) : null}
+
           <Text style={styles.questionText}>{question.question}</Text>
 
           {/* Options */}
