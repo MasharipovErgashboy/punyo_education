@@ -1,21 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions, Platform, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions, Platform, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import LessonDetailScreen from './LessonDetailScreen';
+import TestRunnerScreen from './TestRunnerScreen';
 
 const { width } = Dimensions.get('window');
 
 export default function ModuleLessonsScreen({ module, moduleId, moduleTitle = 'Darslar', onBack }) {
   const insets = useSafeAreaInsets();
   const [activeLesson, setActiveLesson] = useState(null);
+  const [activeTest, setActiveTest] = useState(null);
   const [lessonsList, setLessonsList] = useState([]);
+  const [completedIds, setCompletedIds] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const activeModuleId = moduleId || module?.id;
   const activeTitle = moduleTitle || module?.title || 'Darslar';
 
+  // Load saved completed items from AsyncStorage
+  useEffect(() => {
+    if (!activeModuleId) return;
+    const storageKey = `@punyo_module_completed_${activeModuleId}`;
+    AsyncStorage.getItem(storageKey)
+      .then(val => {
+        if (val) {
+          try {
+            const parsed = JSON.parse(val);
+            if (Array.isArray(parsed)) {
+              setCompletedIds(parsed);
+            }
+          } catch (e) {
+            console.log('Error parsing completed lessons cache', e);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [activeModuleId]);
+
+  // Fetch real lessons and tests from backend
   useEffect(() => {
     if (!activeModuleId) {
       setIsLoading(false);
@@ -38,7 +63,6 @@ export default function ModuleLessonsScreen({ module, moduleId, moduleTitle = 'D
             youtube_url: l.youtube_url,
             description: l.description,
             order_index: l.order_index,
-            isLocked: false,
           });
         });
       }
@@ -50,8 +74,14 @@ export default function ModuleLessonsScreen({ module, moduleId, moduleTitle = 'D
             type: 'test',
             title: t.title,
             test_type: t.test_type,
+            question: t.question,
+            options: t.options,
+            correct_answer: t.correct_answer,
+            reading_text: t.reading_text,
+            audio_url: t.audio_url,
+            tg_bot_link: t.tg_bot_link,
+            tg_channel: t.tg_channel,
             order_index: t.order_index,
-            isLocked: false,
           });
         });
       }
@@ -62,6 +92,78 @@ export default function ModuleLessonsScreen({ module, moduleId, moduleTitle = 'D
     });
   }, [activeModuleId]);
 
+  // Mark an item as completed and move to the next item
+  const handleCompleteItem = async (completedItem) => {
+    let nextCompleted = [...completedIds];
+    if (!nextCompleted.includes(completedItem.id)) {
+      nextCompleted.push(completedItem.id);
+      setCompletedIds(nextCompleted);
+      try {
+        await AsyncStorage.setItem(`@punyo_module_completed_${activeModuleId}`, JSON.stringify(nextCompleted));
+      } catch (e) {
+        console.log('Error saving completed item', e);
+      }
+    }
+
+    // Advance to next item
+    const currentIndex = lessonsList.findIndex(x => x.id === completedItem.id);
+    const nextItem = (currentIndex >= 0 && currentIndex + 1 < lessonsList.length) ? lessonsList[currentIndex + 1] : null;
+
+    if (nextItem) {
+      if (nextItem.type === 'video') {
+        setActiveTest(null);
+        setActiveLesson({
+          ...nextItem,
+          isCompleted: nextCompleted.includes(nextItem.id),
+        });
+      } else if (nextItem.type === 'test') {
+        setActiveLesson(null);
+        setActiveTest({
+          ...nextItem,
+          isCompleted: nextCompleted.includes(nextItem.id),
+        });
+      }
+    } else {
+      setActiveLesson(null);
+      setActiveTest(null);
+      Alert.alert(
+        "Tabriklaymiz! 🎉",
+        "Siz ushbu modulning barcha darslik va testlarini muvaffaqiyatli yakunladingiz!",
+        [{ text: "Ajoyib", style: "default" }]
+      );
+    }
+  };
+
+  const handleItemPress = (item, index) => {
+    // First item is always unlocked. Subsequent items are locked if previous item is not completed.
+    const isLocked = index > 0 && !completedIds.includes(lessonsList[index - 1]?.id);
+
+    if (isLocked) {
+      Alert.alert(
+        "Material qulflangan 🔒",
+        "Ushbu dars yoki testni ochish uchun avvalgi materialni to'liq yakunlashingiz kerak.",
+        [{ text: "Tushundim", style: "default" }]
+      );
+      return;
+    }
+
+    const isItemCompleted = completedIds.includes(item.id);
+
+    if (item.type === 'video') {
+      setActiveTest(null);
+      setActiveLesson({
+        ...item,
+        isCompleted: isItemCompleted,
+      });
+    } else if (item.type === 'test') {
+      setActiveLesson(null);
+      setActiveTest({
+        ...item,
+        isCompleted: isItemCompleted,
+      });
+    }
+  };
+
   if (activeLesson) {
     return (
       <LessonDetailScreen 
@@ -70,12 +172,21 @@ export default function ModuleLessonsScreen({ module, moduleId, moduleTitle = 'D
         duration={activeLesson.duration} 
         youtubeUrl={activeLesson.youtube_url}
         onBack={() => setActiveLesson(null)} 
+        onNext={() => handleCompleteItem(activeLesson)}
       />
     );
   }
 
-  const videoCount = lessonsList.filter(i => i.type === 'video').length;
-  const testCount = lessonsList.filter(i => i.type === 'test').length;
+  if (activeTest) {
+    return (
+      <TestRunnerScreen
+        testTitle={activeTest.title}
+        testData={activeTest}
+        onBack={() => setActiveTest(null)}
+        onComplete={() => handleCompleteItem(activeTest)}
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -104,19 +215,9 @@ export default function ModuleLessonsScreen({ module, moduleId, moduleTitle = 'D
 
       {/* Main Sheet (Rounded Top) */}
       <View style={styles.sheetContainer}>
-        {/* Sheet Header */}
+        {/* Sheet Header - Removed the circled counter badge as requested */}
         <View style={styles.sheetHeader}>
           <Text style={styles.sheetTitle}>{activeTitle}</Text>
-          <View style={styles.sheetHeaderMeta}>
-            <View style={styles.metaBadge}>
-              <Ionicons name="play-outline" size={14} color="#10B981" />
-              <Text style={styles.metaBadgeText}>{videoCount} ta video</Text>
-            </View>
-            <View style={[styles.metaBadge, { marginLeft: 12 }]}>
-              <Ionicons name="help-circle-outline" size={14} color="#10B981" />
-              <Text style={styles.metaBadgeText}>{testCount} ta test</Text>
-            </View>
-          </View>
         </View>
 
         {/* Lessons List */}
@@ -126,38 +227,60 @@ export default function ModuleLessonsScreen({ module, moduleId, moduleTitle = 'D
               <ActivityIndicator size="large" color="#7c3aed" />
             </View>
           ) : lessonsList.length > 0 ? (
-            lessonsList.map((item) => (
-              <TouchableOpacity 
-                key={item.id} 
-                style={[styles.lessonCard, item.isLocked && styles.lessonCardLocked]}
-                activeOpacity={0.8}
-                onPress={() => setActiveLesson(item)}
-              >
-                {/* Left Icon */}
-                <View style={styles.lessonIconBg}>
-                  <Ionicons 
-                    name={item.type === 'video' ? "play" : "help-circle"} 
-                    size={18} 
-                    color="#7c3aed" 
-                  />
-                </View>
+            lessonsList.map((item, index) => {
+              const isCompleted = completedIds.includes(item.id);
+              const isLocked = index > 0 && !completedIds.includes(lessonsList[index - 1]?.id);
 
-                {/* Title & Duration */}
-                <View style={styles.lessonInfo}>
-                  <Text style={styles.lessonTitle}>{item.title}</Text>
-                  {item.duration && (
-                    <Text style={styles.lessonDuration}>{item.duration}</Text>
+              return (
+                <TouchableOpacity 
+                  key={item.id} 
+                  style={[styles.lessonCard, isLocked && styles.lessonCardLocked]}
+                  activeOpacity={0.8}
+                  onPress={() => handleItemPress(item, index)}
+                >
+                  {/* Left Icon */}
+                  <View style={[
+                    styles.lessonIconBg, 
+                    isCompleted && styles.lessonIconBgCompleted, 
+                    isLocked && styles.lessonIconBgLocked
+                  ]}>
+                    <Ionicons 
+                      name={item.type === 'video' ? "play" : "help-circle"} 
+                      size={18} 
+                      color={isLocked ? "#94A3B8" : (isCompleted ? "#059669" : "#7c3aed")} 
+                    />
+                  </View>
+
+                  {/* Title & Duration */}
+                  <View style={styles.lessonInfo}>
+                    <Text style={[styles.lessonTitle, isLocked && styles.lessonTitleLocked]}>
+                      {item.title}
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                      {item.duration ? (
+                        <Text style={styles.lessonDuration}>{item.duration}</Text>
+                      ) : (
+                        <Text style={styles.lessonDuration}>{item.type === 'video' ? "Video dars" : "Test sinovi"}</Text>
+                      )}
+                      {isCompleted && (
+                        <View style={styles.completedTag}>
+                          <Text style={styles.completedTagText}>Yakunlangan</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Right Status (Checkmark, Lock, or Open circle) */}
+                  {isCompleted ? (
+                    <Ionicons name="checkmark-circle" size={22} color="#10B981" />
+                  ) : isLocked ? (
+                    <Ionicons name="lock-closed" size={19} color="#94A3B8" />
+                  ) : (
+                    <View style={styles.openCircle} />
                   )}
-                </View>
-
-                {/* Right Status (Open circle or Lock) */}
-                {item.isLocked ? (
-                  <Ionicons name="lock-closed" size={18} color="#7c3aed" />
-                ) : (
-                  <View style={styles.openCircle} />
-                )}
-              </TouchableOpacity>
-            ))
+                </TouchableOpacity>
+              );
+            })
           ) : (
             <View style={{ paddingVertical: 40, alignItems: 'center', paddingHorizontal: 20 }}>
               <Ionicons name="film-outline" size={44} color="#C4B5FD" />
@@ -175,7 +298,6 @@ export default function ModuleLessonsScreen({ module, moduleId, moduleTitle = 'D
       </View>
     </View>
   );
-
 }
 
 const styles = StyleSheet.create({
@@ -245,20 +367,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1F2937',
   },
-  sheetHeaderMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  metaBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  metaBadgeText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#10B981',
-    marginLeft: 4,
-  },
   scrollContent: {
     paddingBottom: 20,
   },
@@ -278,7 +386,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   lessonCardLocked: {
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+    opacity: 0.85,
   },
   lessonIconBg: {
     width: 38,
@@ -288,6 +398,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
+  },
+  lessonIconBgCompleted: {
+    backgroundColor: '#ECFDF5',
+  },
+  lessonIconBgLocked: {
+    backgroundColor: '#F1F5F9',
   },
   lessonInfo: {
     flex: 1,
@@ -299,9 +415,24 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     marginBottom: 3,
   },
+  lessonTitleLocked: {
+    color: '#64748B',
+  },
   lessonDuration: {
     fontSize: 12,
     color: '#9CA3AF',
+  },
+  completedTag: {
+    marginLeft: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    backgroundColor: '#ECFDF5',
+  },
+  completedTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#059669',
   },
   openCircle: {
     width: 20,

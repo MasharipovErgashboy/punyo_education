@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Dimensions, Platform } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,124 +9,83 @@ const { width } = Dimensions.get('window');
 
 const getYouTubeId = (url) => {
   if (!url || typeof url !== 'string') return null;
-  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
-  return match ? match[1] : null;
+  const trimmed = url.trim();
+  const match = trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/i);
+  if (match && match[1]) return match[1];
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+  return null;
 };
 
-export default function LessonDetailScreen({ lesson, lessonTitle = 'Dars 1 IELTS Introduction', duration, youtubeUrl, onBack, onNext }) {
+export default function LessonDetailScreen({ lesson, lessonTitle, duration, youtubeUrl, onBack, onNext }) {
   const insets = useSafeAreaInsets();
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  const activeTitle = lessonTitle || lesson?.title || 'Darslik';
   const rawUrl = youtubeUrl || lesson?.youtube_url;
   const youtubeId = useMemo(() => getYouTubeId(rawUrl), [rawUrl]);
-  const activeDuration = duration || lesson?.duration || '15 daqiqa';
+
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isVideoCompleted, setIsVideoCompleted] = useState(!!lesson?.isCompleted || !youtubeId);
+
+  const activeTitle = lessonTitle || lesson?.title || 'Video Darslik';
+  const activeDuration = duration || lesson?.duration || 'Davomiyligi ko\'rsatilmagan';
   const activeDescription = lesson?.description;
+
+  const handleVideoStateChange = (state) => {
+    if (state === 'ended') {
+      setIsVideoCompleted(true);
+    }
+  };
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      {/* Top Video Player */}
-      <View style={[styles.videoPlayerContainer, { height: 230 + (insets.top > 0 ? insets.top : (Platform.OS === 'ios' ? 44 : 25)) }]}>
-        {youtubeId ? (
-          <View style={{ flex: 1, backgroundColor: '#000000', justifyContent: 'center' }}>
-            <YoutubePlayer
-              height={230}
-              play={isPlaying}
-              videoId={youtubeId}
-            />
-          </View>
-        ) : (
-          /* Video Background Mockup */
-          <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80' }} 
-            style={styles.videoBg} 
-            resizeMode="cover"
-          />
-        )}
-
-        {/* Top Overlay Gradient Bar */}
-        <View style={[styles.videoHeaderOverlay, { paddingTop: insets.top > 0 ? insets.top + 8 : (Platform.OS === 'ios' ? 50 : 35) }]}>
-          <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
-            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-
-
-          <View style={styles.videoBrandInfo}>
-            <View style={styles.brandLogoBox}>
-              <Ionicons name="triangle" size={14} color="#FFF" style={{ transform: [{ rotate: '180deg' }] }} />
-            </View>
-            <View style={{ marginLeft: 8 }}>
-              <Text style={styles.videoTitleText} numberOfLines={1}>IELTS Introduction |</Text>
-              <Text style={styles.videoSubtitleText}>IBRAT FARZANDLARI</Text>
-            </View>
-          </View>
-
-          <View style={styles.videoHeaderRightIcons}>
-            <TouchableOpacity style={styles.headerIconBtn}>
-              <Ionicons name="volume-high-outline" size={20} color="#FFF" />
-            </TouchableOpacity>
-            <View style={styles.ccBadge}>
-              <Text style={styles.ccText}>CC</Text>
-            </View>
-            <TouchableOpacity style={styles.headerIconBtn}>
-              <Ionicons name="settings-outline" size={20} color="#FFF" />
-            </TouchableOpacity>
-          </View>
+      {/* Top Header Bar */}
+      <View style={[styles.topHeaderBar, { paddingTop: insets.top > 0 ? insets.top + 8 : (Platform.OS === 'ios' ? 50 : 35) }]}>
+        <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
+          <Ionicons name="chevron-back" size={24} color="#0F172A" />
+        </TouchableOpacity>
+        <View style={{ flex: 1, marginHorizontal: 8 }}>
+          <Text style={styles.topHeaderTitle} numberOfLines={1}>{activeTitle}</Text>
+          <Text style={styles.topHeaderSub}>PUNYO EDUCATION</Text>
         </View>
-
-        {/* Center Play Button Overlay */}
-        <View style={styles.playCenterOverlay}>
-          <TouchableOpacity 
-            style={styles.playCircleBtn} 
-            activeOpacity={0.8}
-            onPress={() => setIsPlaying(!isPlaying)}
-          >
-            <Ionicons name={isPlaying ? "pause" : "play"} size={36} color="#FFFFFF" style={{ marginLeft: isPlaying ? 0 : 4 }} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Bottom Overlay Controls Bar */}
-        <View style={styles.videoBottomControls}>
-          {/* Time badge */}
-          <View style={styles.timeBadge}>
-            <Text style={styles.timeBadgeText}>0:00 / 18:06</Text>
-          </View>
-
-          {/* Fullscreen Button */}
-          <TouchableOpacity style={styles.fullscreenBtn}>
-            <Ionicons name="expand-outline" size={18} color="#FFF" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Progress Bar Line */}
-        <View style={styles.progressLineBg}>
-          <View style={styles.progressLineFill} />
-          <View style={styles.progressDot} />
-        </View>
-
-        {/* Bottom Floating Bar */}
-        <View style={styles.videoFloatingRow}>
-          <TouchableOpacity style={styles.floatCircleBtn}>
-            <Ionicons name="link-outline" size={16} color="#FFF" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.floatPillBtn}>
-            <Text style={styles.floatPillText}>Boshqa videolar</Text>
-            <View style={styles.floatThumbBox}>
-              <Ionicons name="play-circle" size={18} color="#FFF" />
-            </View>
-          </TouchableOpacity>
-
-          <View style={{ flex: 1 }} />
-
-          <View style={styles.youtubeTag}>
-            <Ionicons name="logo-youtube" size={16} color="#FF0000" />
-            <Text style={styles.youtubeText}>YouTube</Text>
-          </View>
+        <View style={styles.durationBadge}>
+          <Ionicons name="time-outline" size={13} color="#7C3AED" style={{ marginRight: 4 }} />
+          <Text style={styles.durationBadgeText}>{activeDuration}</Text>
         </View>
       </View>
+
+      {/* Real YouTube Video Player */}
+      <View style={styles.videoPlayerContainer}>
+        {youtubeId ? (
+          <YoutubePlayer
+            height={220}
+            play={isPlaying}
+            videoId={youtubeId}
+            onChangeState={handleVideoStateChange}
+          />
+        ) : (
+          <View style={styles.noVideoBox}>
+            <Ionicons name="videocam-off-outline" size={40} color="#94A3B8" />
+            <Text style={styles.noVideoText}>Video darslik havolasi biriktirilmagan</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Completion Status Alert Notice */}
+      {!isVideoCompleted ? (
+        <View style={styles.watchNotice}>
+          <Ionicons name="lock-closed" size={15} color="#D97706" style={{ marginRight: 8 }} />
+          <Text style={styles.watchNoticeText}>
+            Keyingi bosqichga o'tish uchun videoni oxirigacha ko'ring
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.watchNoticeCompleted}>
+          <Ionicons name="checkmark-circle" size={16} color="#16A34A" style={{ marginRight: 8 }} />
+          <Text style={styles.watchNoticeCompletedText}>
+            Video to'liq ko'rildi! Keyingi bosqich ochildi
+          </Text>
+        </View>
+      )}
 
       {/* Middle Scrollable Documentation Section */}
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.docScrollContent}>
@@ -138,42 +97,18 @@ export default function LessonDetailScreen({ lesson, lessonTitle = 'Dars 1 IELTS
           </View>
         </View>
 
-        {/* Documentation Paragraphs */}
+        {/* Real Documentation Paragraphs */}
         <View style={styles.docBody}>
           {activeDescription ? (
             <Text style={styles.paragraphText}>{activeDescription}</Text>
           ) : (
-            <>
-              <Text style={styles.headingText}>IELTS – The International English Language Testing System</Text>
-              <Text style={styles.paragraphText}>IELTS – Xalqaro Ingliz tili test tizimi</Text>
-            </>
+            <View style={styles.emptyDescBox}>
+              <Ionicons name="information-circle-outline" size={26} color="#7C3AED" style={{ marginBottom: 6 }} />
+              <Text style={styles.emptyDescText}>
+                Ushbu video darslik materiallarini diqqat bilan o'rganing. Video yakunlangandan so'ng keyingi darslik yoki test ochiladi.
+              </Text>
+            </View>
           )}
-
-          
-          <Text style={styles.paragraphText}>
-            Eng birinchi IELTS imtihoniga 1989-yilda topshirilgan.
-          </Text>
-          
-          <Text style={styles.paragraphText}>
-            IDP va British Council IELTS imtihonlarini tashkil etishadi. Test materiallari Cambridge English Language Assessment tomonidan taqdim etiladi va tekshiriladi.
-          </Text>
-          
-          <Text style={styles.headingText}>IELTS imtihonida 2 ta modul bor:</Text>
-
-          <View style={styles.bulletList}>
-            <View style={styles.bulletItem}>
-              <View style={styles.bulletDot} />
-              <Text style={styles.bulletText}><Text style={styles.boldText}>Academic</Text> – Oliy o'quv yurtlarida ta'lim olish va professional faoliyat uchun.</Text>
-            </View>
-            <View style={styles.bulletItem}>
-              <View style={styles.bulletDot} />
-              <Text style={styles.bulletText}><Text style={styles.boldText}>General Training</Text> – Ishlash va migratsiya maqsadlarida foydalanish uchun.</Text>
-            </View>
-          </View>
-
-          <Text style={styles.paragraphText}>
-            Ushbu darsda IELTS bo'limlarining tuzilishi, baholash mezonlari va tayyorgarlik ko'rishning eng samarali usullari haqida batafsil ma'lumot beriladi.
-          </Text>
         </View>
 
         <View style={{ height: 40 }} />
@@ -185,8 +120,23 @@ export default function LessonDetailScreen({ lesson, lessonTitle = 'Dars 1 IELTS
           <Ionicons name="menu" size={22} color="#4B5563" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.nextBtn} activeOpacity={0.8} onPress={onNext || onBack}>
-          <Text style={styles.nextBtnText}>Keyingi</Text>
+        <TouchableOpacity 
+          style={[styles.nextBtn, !isVideoCompleted && styles.nextBtnDisabled]} 
+          activeOpacity={0.8} 
+          disabled={!isVideoCompleted}
+          onPress={() => onNext && onNext(lesson)}
+        >
+          {!isVideoCompleted ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="lock-closed" size={16} color="#94A3B8" style={{ marginRight: 6 }} />
+              <Text style={styles.nextBtnTextDisabled}>Keyingi (Qulflangan)</Text>
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.nextBtnText}>Keyingi</Text>
+              <Ionicons name="arrow-forward" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
+            </View>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -197,195 +147,116 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    paddingTop: 0,
+  },
+  topHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  topHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  topHeaderSub: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#7C3AED',
+    letterSpacing: 0.5,
+  },
+  durationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: '#F5F3FF',
+    borderWidth: 1,
+    borderColor: '#EDE9FE',
+  },
+  durationBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#7C3AED',
   },
   videoPlayerContainer: {
     width: '100%',
-    height: 250,
+    height: 220,
     backgroundColor: '#000000',
-    position: 'relative',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  videoBg: {
-    width: '100%',
-    height: '100%',
-    opacity: 0.85,
-  },
-  videoHeaderOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    paddingTop: 12,
-    paddingHorizontal: 15,
-    paddingBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-  },
-  backBtn: {
-    padding: 4,
-    marginRight: 8,
-  },
-  videoBrandInfo: {
+  noVideoBox: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  brandLogoBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#FF6B00',
+    backgroundColor: '#0F172A',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 20,
   },
-  videoTitleText: {
+  noVideoText: {
+    color: '#94A3B8',
     fontSize: 13,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  videoSubtitleText: {
-    fontSize: 10,
-    color: '#D1D5DB',
-    fontWeight: '500',
-  },
-  videoHeaderRightIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerIconBtn: {
-    padding: 4,
-    marginLeft: 8,
-  },
-  ccBadge: {
-    borderWidth: 1,
-    borderColor: '#FFF',
-    borderRadius: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    marginLeft: 8,
-  },
-  ccText: {
-    color: '#FFF',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  playCenterOverlay: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playCircleBtn: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
-  },
-  videoBottomControls: {
-    position: 'absolute',
-    bottom: 38,
-    left: 15,
-    right: 15,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  timeBadge: {
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  timeBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
     fontWeight: '600',
+    marginTop: 8,
+    textAlign: 'center',
   },
-  fullscreenBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  progressLineBg: {
-    position: 'absolute',
-    bottom: 30,
-    left: 15,
-    right: 15,
-    height: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 1.5,
-    justifyContent: 'center',
-  },
-  progressLineFill: {
-    width: '10%',
-    height: '100%',
-    backgroundColor: '#FF0000',
-    borderRadius: 1.5,
-  },
-  progressDot: {
-    position: 'absolute',
-    left: '10%',
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#FF0000',
-    marginTop: -3.5,
-  },
-  videoFloatingRow: {
-    position: 'absolute',
-    bottom: 4,
-    left: 15,
-    right: 15,
+  watchNotice: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#FEF3C7',
+    borderBottomWidth: 1,
+    borderBottomColor: '#FDE68A',
   },
-  floatCircleBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
+  watchNoticeText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#B45309',
+    flex: 1,
   },
-  floatPillBtn: {
+  watchNoticeCompleted: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#DCFCE7',
+    borderBottomWidth: 1,
+    borderBottomColor: '#BBF7D0',
   },
-  floatPillText: {
-    color: '#FFF',
-    fontSize: 10,
-    fontWeight: '500',
-    marginRight: 4,
+  watchNoticeCompletedText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#15803D',
+    flex: 1,
   },
-  floatThumbBox: {
-    width: 14,
-    height: 14,
-    justifyContent: 'center',
+  emptyDescBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 16,
     alignItems: 'center',
+    marginVertical: 12,
   },
-  youtubeTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  emptyDescText: {
+    fontSize: 13.5,
+    color: '#64748B',
+    lineHeight: 20,
+    textAlign: 'center',
   },
-  youtubeText: {
-    color: '#FFF',
-    fontSize: 11,
-    fontWeight: 'bold',
-    marginLeft: 3,
+  nextBtnDisabled: {
+    backgroundColor: '#E2E8F0',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  nextBtnTextDisabled: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#94A3B8',
   },
   docScrollContent: {
     paddingHorizontal: 20,

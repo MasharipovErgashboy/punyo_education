@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -25,11 +25,43 @@ const mockQuestions = Array.from({ length: TOTAL_QUESTIONS }).map((_, index) => 
   explanation: index === 11 ? "\"I\" olmoshi uchun hozirgi oddiy zamonda fe'lning asosiy shakli ishlatiladi." : "Batafsil izoh bu yerda yoziladi."
 }));
 
-export default function TestRunnerScreen({ testTitle, onBack }) {
+export default function TestRunnerScreen({ testTitle, testData, onBack, onComplete }) {
   const insets = useSafeAreaInsets();
-  const [currentIdx, setCurrentIdx] = useState(11); // Starting at 11 (12th question) for demo purposes
-  const [answers, setAnswers] = useState({ 11: 'A' }); // Pre-fill answer for demo
-  const [bookmarks, setBookmarks] = useState([13, 16]); // Pre-fill bookmarks (indices 13=14th, 16=17th) for demo
+
+  const questionsList = useMemo(() => {
+    if (testData?.questions && Array.isArray(testData.questions) && testData.questions.length > 0) {
+      return testData.questions;
+    }
+    if (testData?.question) {
+      const rawOpts = testData.options || [];
+      const letters = ['A', 'B', 'C', 'D', 'E'];
+      const formattedOpts = rawOpts.map((opt, i) => {
+        if (typeof opt === 'string') {
+          return { id: letters[i] || String(i + 1), text: opt };
+        }
+        return { id: opt.id || letters[i] || String(i + 1), text: opt.text || String(opt) };
+      });
+
+      return [{
+        id: 1,
+        category: testData.test_type ? testData.test_type.toUpperCase() : 'Grammar',
+        points: 10,
+        question: testData.question,
+        options: formattedOpts,
+        correctOption: (testData.correct_answer || 'A').toUpperCase().trim(),
+        explanation: testData.reading_text || '',
+        audioUrl: testData.audio_url || null,
+      }];
+    }
+    return mockQuestions;
+  }, [testData]);
+
+  const isRealData = !!(testData?.question || (testData?.questions && testData.questions.length > 0));
+  const totalCount = questionsList.length;
+
+  const [currentIdx, setCurrentIdx] = useState(isRealData ? 0 : 11);
+  const [answers, setAnswers] = useState(isRealData ? {} : { 11: 'A' });
+  const [bookmarks, setBookmarks] = useState(isRealData ? [] : [13, 16]);
   const [timeLeft, setTimeLeft] = useState(35 * 60 + 42); // 35:42 in seconds
   const [isPaused, setIsPaused] = useState(false);
   const [isGridExpanded, setIsGridExpanded] = useState(false);
@@ -70,7 +102,7 @@ export default function TestRunnerScreen({ testTitle, onBack }) {
   };
 
   const goToNext = () => {
-    if (currentIdx < TOTAL_QUESTIONS - 1) {
+    if (currentIdx < totalCount - 1) {
       setCurrentIdx(currentIdx + 1);
     } else {
       setIsCompleted(true);
@@ -78,27 +110,43 @@ export default function TestRunnerScreen({ testTitle, onBack }) {
   };
 
   if (isCompleted) {
+    let correctCount = 0;
+    questionsList.forEach((q, idx) => {
+      const userAns = answers[idx];
+      const correct = q.correctOption;
+      if (userAns && String(userAns).toUpperCase() === String(correct).toUpperCase()) {
+        correctCount++;
+      }
+    });
+
+    const calculatedScore = isRealData ? correctCount * 10 : 18;
+    const totalScore = isRealData ? totalCount * 10 : 25;
+    const passThreshold = isRealData ? Math.ceil(totalCount * 0.6) * 10 : 15;
+
     return (
       <TestResultScreen
-        score={18}
-        total={25}
-        passingScore={15}
-        correctCount={18}
-        wrongCount={5}
-        skippedCount={2}
-        timeTaken="24:18"
-        totalTime="30:00"
+        score={calculatedScore}
+        total={totalScore}
+        passingScore={passThreshold}
+        correctCount={isRealData ? correctCount : 18}
+        wrongCount={isRealData ? totalCount - correctCount : 5}
+        skippedCount={isRealData ? totalCount - Object.keys(answers).length : 2}
+        timeTaken="02:15"
+        totalTime="10:00"
         onRetry={() => {
           setAnswers({});
           setCurrentIdx(0);
           setIsCompleted(false);
         }}
-        onOtherTests={onBack}
+        onOtherTests={() => {
+          if (onComplete) onComplete();
+          else onBack();
+        }}
       />
     );
   }
 
-  const question = mockQuestions[currentIdx];
+  const question = questionsList[currentIdx] || questionsList[0] || mockQuestions[0];
   const selectedAnswer = answers[currentIdx];
   const isBookmarked = bookmarks.includes(currentIdx);
 
@@ -138,9 +186,9 @@ export default function TestRunnerScreen({ testTitle, onBack }) {
         
         {/* Progress */}
         <View style={styles.progressHeader}>
-          <Text style={styles.progressText}>{currentIdx + 1} / {TOTAL_QUESTIONS}</Text>
+          <Text style={styles.progressText}>{currentIdx + 1} / {totalCount}</Text>
           <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: `${((currentIdx + 1) / TOTAL_QUESTIONS) * 100}%` }]} />
+            <View style={[styles.progressBarFill, { width: `${((currentIdx + 1) / totalCount) * 100}%` }]} />
           </View>
         </View>
 
@@ -209,8 +257,8 @@ export default function TestRunnerScreen({ testTitle, onBack }) {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.nextBtn} onPress={goToNext}>
-            <Text style={styles.nextBtnText}>{currentIdx === TOTAL_QUESTIONS - 1 ? "Yakunlash" : "Keyingi"}</Text>
-            <Ionicons name={currentIdx === TOTAL_QUESTIONS - 1 ? "checkmark-circle" : "arrow-forward"} size={16} color="#FFF" />
+            <Text style={styles.nextBtnText}>{currentIdx === totalCount - 1 ? "Yakunlash" : "Keyingi"}</Text>
+            <Ionicons name={currentIdx === totalCount - 1 ? "checkmark-circle" : "arrow-forward"} size={16} color="#FFF" />
           </TouchableOpacity>
         </View>
 
@@ -225,7 +273,7 @@ export default function TestRunnerScreen({ testTitle, onBack }) {
               <Text style={styles.gridToggleBadgeText}>{currentIdx + 1}</Text>
             </View>
             <Text style={styles.gridToggleTitle}>
-              {isGridExpanded ? "Savollar ro'yxatini yopish" : `Savollar ro'yxati (${currentIdx + 1}/${TOTAL_QUESTIONS})`}
+              {isGridExpanded ? "Savollar ro'yxatini yopish" : `Savollar ro'yxati (${currentIdx + 1}/${totalCount})`}
             </Text>
           </View>
           <Ionicons 
@@ -239,7 +287,7 @@ export default function TestRunnerScreen({ testTitle, onBack }) {
         {isGridExpanded && (
           <>
             <View style={styles.grid}>
-              {mockQuestions.map((q, idx) => {
+              {questionsList.map((q, idx) => {
                 const num = idx + 1;
                 const hasAnswer = answers[idx] !== undefined;
                 const isMarked = bookmarks.includes(idx);
