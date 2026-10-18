@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Platform, RefreshControl, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import CourseModulesScreen from './CourseModulesScreen';
@@ -8,8 +8,35 @@ export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFi
   const insets = useSafeAreaInsets();
   const [activeFilter, setActiveFilter] = useState(initialFilter);
   const [selectedCourseModule, setSelectedCourseModule] = useState(null);
+  const [courses, setCourses] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const filters = ['Barcha kurslar', 'Mening kurslarim'];
+
+  const fetchCourses = async () => {
+    try {
+      const res = await fetch('http://192.168.0.107:8000/api/courses/');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.courses)) {
+        setCourses(data.courses);
+      }
+    } catch (err) {
+      console.log('Error fetching courses:', err);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCourses();
+  }, []);
+
+  const onRefresh = () => {
+    setIsRefreshing(true);
+    fetchCourses();
+  };
 
   useEffect(() => {
     if (onSubScreenToggle) {
@@ -26,14 +53,18 @@ export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFi
     );
   }
 
-  const CourseItem = ({ icon, title, subtitle }) => (
+  const CourseItem = ({ course, icon, title, subtitle }) => (
     <View style={styles.courseItem}>
       <Image source={icon} style={styles.courseIcon} resizeMode="contain" />
       <View style={styles.courseInfo}>
         <Text style={styles.courseTitle}>{title}</Text>
         <Text style={styles.courseSubtitle}>{subtitle}</Text>
       </View>
-      <TouchableOpacity style={styles.viewButton} activeOpacity={0.8} onPress={() => onViewCourse && onViewCourse({ title })}>
+      <TouchableOpacity 
+        style={styles.viewButton} 
+        activeOpacity={0.8} 
+        onPress={() => onViewCourse && onViewCourse(course || { title })}
+      >
         <Text style={styles.viewButtonText}>Ko'rish</Text>
       </TouchableOpacity>
     </View>
@@ -67,6 +98,17 @@ export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFi
     </TouchableOpacity>
   );
 
+  // Group dynamic backend courses by category
+  const categoryMap = {};
+  courses.forEach(c => {
+    const catName = c.category_name || 'Boshqa kurslar';
+    if (!categoryMap[catName]) {
+      categoryMap[catName] = [];
+    }
+    categoryMap[catName].push(c);
+  });
+  const categoryNames = Object.keys(categoryMap);
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -80,7 +122,13 @@ export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFi
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={['#7c3aed']} tintColor="#7c3aed" />
+        }
+      >
         
         {/* Filters */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersContainer} contentContainerStyle={styles.filtersContent}>
@@ -101,67 +149,43 @@ export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFi
 
         {activeFilter === 'Barcha kurslar' ? (
           <>
-            {/* Chet tillari Section */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Chet tillari</Text>
-              <TouchableOpacity activeOpacity={0.7} onPress={() => onViewAll && onViewAll('Chet tillari')}>
-                <Text style={styles.seeAllText}>Barchasini ko'rish {'>'}</Text>
-              </TouchableOpacity>
-            </View>
+            {isLoading && !isRefreshing ? (
+              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#7c3aed" />
+              </View>
+            ) : categoryNames.length > 0 ? (
+              categoryNames.map(categoryName => (
+                <View key={categoryName} style={{ marginBottom: 15 }}>
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>{categoryName}</Text>
+                    <TouchableOpacity 
+                      activeOpacity={0.7} 
+                      onPress={() => onViewAll && onViewAll(categoryName, categoryMap[categoryName])}
+                    >
+                      <Text style={styles.seeAllText}>Barchasini ko'rish {'>'}</Text>
+                    </TouchableOpacity>
+                  </View>
 
-            <View style={styles.courseList}>
-              <CourseItem 
-                icon={require('./assets/uk.png')} 
-                title="English A1" 
-                subtitle="Beginner" 
-              />
-              <CourseItem 
-                icon={require('./assets/kr.png')} 
-                title="Korean A1" 
-                subtitle="Beginner" 
-              />
-              <CourseItem 
-                icon={require('./assets/tr.png')} 
-                title="Turkish A1" 
-                subtitle="Beginner" 
-              />
-              <CourseItem 
-                icon={require('./assets/de.png')} 
-                title="German A1" 
-                subtitle="Beginner" 
-              />
-              <CourseItem 
-                icon={require('./assets/es.png')} 
-                title="Spanish A1" 
-                subtitle="Beginner" 
-              />
-            </View>
-
-            {/* IT kurslari Section */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>IT kurslari</Text>
-              <TouchableOpacity activeOpacity={0.7} onPress={() => onViewAll && onViewAll('IT kurslari')}>
-                <Text style={styles.seeAllText}>Barchasini ko'rish {'>'}</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.courseList}>
-              <CourseItem 
-                icon={require('./assets/python.png')} 
-                title="Python Basics" 
-                subtitle="Beginner • 20 dars" 
-              />
-              <CourseItem 
-                icon={require('./assets/html.png')} 
-                title="HTML & CSS" 
-                subtitle="Beginner • 18 dars" 
-              />
-              <CourseItem 
-                icon={require('./assets/js.png')} 
-                title="JavaScript Basics" 
-                subtitle="Beginner • 22 dars" 
-              />
-            </View>
+                  <View style={styles.courseList}>
+                    {categoryMap[categoryName].map(c => (
+                      <CourseItem 
+                        key={c.id} 
+                        course={c}
+                        icon={c.icon ? { uri: c.icon } : (c.icon_url ? { uri: c.icon_url } : require('./assets/uk.png'))} 
+                        title={c.name || c.title} 
+                        subtitle={c.hint} 
+                      />
+                    ))}
+                  </View>
+                </View>
+              ))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="book-outline" size={48} color="#C4B5FD" />
+                <Text style={styles.emptyTitle}>Hozircha kurslar mavjud emas</Text>
+                <Text style={styles.emptySubtitle}>Admin panel orqali yangi kurslar qo'shilganda bu yerda ko'rinadi.</Text>
+              </View>
+            )}
           </>
         ) : (
           <View style={styles.myCoursesList}>
@@ -383,5 +407,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  emptyContainer: {
+    paddingVertical: 60,
+    paddingHorizontal: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#34115C',
+    marginTop: 14,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 19,
   },
 });

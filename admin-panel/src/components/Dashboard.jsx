@@ -17,7 +17,14 @@ import {
   Lock,
   Trash2,
   UserCheck,
-  Image as ImageIcon
+  Image as ImageIcon,
+  FolderTree,
+  GraduationCap,
+  ChevronDown,
+  ChevronRight,
+  DollarSign,
+  Layers,
+  FileText
 } from 'lucide-react';
 import punyoLogo from '../assets/punyo_logo.png';
 import emptyAdsImage from '../assets/empty_ads.png';
@@ -32,6 +39,35 @@ export default function Dashboard({ user, onLogout }) {
   const [adFile, setAdFile] = useState(null);
   const [adOrder, setAdOrder] = useState('1');
   const [isUploading, setIsUploading] = useState(false);
+
+  // Courses & Categories State
+  const [isCoursesMenuOpen, setIsCoursesMenuOpen] = useState(true);
+  const [categoriesList, setCategoriesList] = useState([]);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [categoryNameInput, setCategoryNameInput] = useState('');
+  const [isCategorySubmitting, setIsCategorySubmitting] = useState(false);
+
+  const [coursesTab, setCoursesTab] = useState('sales'); // 'sales', 'internal', 'applications', 'students'
+  const [coursesList, setCoursesList] = useState([]);
+  const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
+  const [isCourseSubmitting, setIsCourseSubmitting] = useState(false);
+
+  const initialCourseForm = {
+    category_id: '',
+    title: '',
+    hint: '',
+    intro_video_url: '',
+    description: '',
+    students_count: "12k O'quvchi",
+    duration: "24 Soat video",
+    has_certificate: true,
+    price: "250,000 UZS/oy",
+    icon_file: null,
+    teachers: [
+      { name: '', role: '', avatar_file: null }
+    ]
+  };
+  const [courseForm, setCourseForm] = useState(initialCourseForm);
 
   const [stats, setStats] = useState({
     total_students: 12450,
@@ -103,6 +139,168 @@ export default function Dashboard({ user, onLogout }) {
     }
   };
 
+  const fetchCategories = () => {
+    fetch('http://192.168.0.107:8000/api/categories/')
+      .then(res => res.json())
+      .then(data => {
+        if (data.categories) {
+          setCategoriesList(data.categories);
+        }
+      })
+      .catch(err => console.log("Failed to fetch categories", err));
+  };
+
+  const fetchCourses = () => {
+    fetch('http://192.168.0.107:8000/api/courses/')
+      .then(res => res.json())
+      .then(data => {
+        if (data.courses) {
+          setCoursesList(data.courses);
+        }
+      })
+      .catch(err => console.log("Failed to fetch courses", err));
+  };
+
+  const submitNewCategory = async (e) => {
+    e.preventDefault();
+    if (!categoryNameInput.trim()) {
+      alert("Iltimos, kategoriya nomini kiriting!");
+      return;
+    }
+    setIsCategorySubmitting(true);
+    try {
+      const res = await fetch('http://192.168.0.107:8000/api/categories/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: categoryNameInput.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("Kategoriya muvaffaqiyatli yaratildi!");
+        setCategoryNameInput('');
+        setIsCategoryModalOpen(false);
+        fetchCategories();
+      } else {
+        alert(data.message || "Xatolik yuz berdi");
+      }
+    } catch (err) {
+      alert("Tarmoq xatosi!");
+    } finally {
+      setIsCategorySubmitting(false);
+    }
+  };
+
+  const handleDeleteCategory = (id) => {
+    if (!window.confirm("Rostdan ham ushbu kategoriyani o'chirmoqchimisiz? Undagi barcha kurslar ham o'chib ketadi!")) return;
+    fetch(`http://192.168.0.107:8000/api/categories/?id=${id}`, { method: 'DELETE' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          fetchCategories();
+          fetchCourses();
+        } else {
+          alert(data.message);
+        }
+      })
+      .catch(err => alert("Xatolik yuz berdi"));
+  };
+
+  const handleAddTeacherField = () => {
+    setCourseForm(prev => ({
+      ...prev,
+      teachers: [...prev.teachers, { name: '', role: '', avatar_file: null }]
+    }));
+  };
+
+  const handleRemoveTeacherField = (index) => {
+    setCourseForm(prev => ({
+      ...prev,
+      teachers: prev.teachers.filter((_, idx) => idx !== index)
+    }));
+  };
+
+  const handleTeacherChange = (index, field, value) => {
+    setCourseForm(prev => {
+      const updated = [...prev.teachers];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, teachers: updated };
+    });
+  };
+
+  const submitNewCourse = async (e) => {
+    e.preventDefault();
+    if (!courseForm.category_id) {
+      alert("Iltimos, kategoriya tanlang!");
+      return;
+    }
+    if (!courseForm.title.trim()) {
+      alert("Iltimos, kurs nomini kiriting!");
+      return;
+    }
+
+    setIsCourseSubmitting(true);
+    const formData = new FormData();
+    formData.append('category_id', courseForm.category_id);
+    formData.append('title', courseForm.title.trim());
+    formData.append('hint', courseForm.hint.trim());
+    formData.append('intro_video_url', courseForm.intro_video_url.trim());
+    formData.append('description', courseForm.description.trim());
+    formData.append('students_count', courseForm.students_count.trim());
+    formData.append('duration', courseForm.duration.trim());
+    formData.append('has_certificate', courseForm.has_certificate);
+    formData.append('price', courseForm.price.trim());
+
+    if (courseForm.icon_file) {
+      formData.append('icon', courseForm.icon_file);
+    }
+
+    // Teachers
+    const validTeachers = [];
+    courseForm.teachers.forEach((t) => {
+      if (t.name.trim()) {
+        validTeachers.push({ name: t.name.trim(), role: t.role.trim() });
+        if (t.avatar_file) {
+          formData.append(`teacher_avatar_${validTeachers.length - 1}`, t.avatar_file);
+        }
+      }
+    });
+    formData.append('teachers', JSON.stringify(validTeachers));
+
+    try {
+      const res = await fetch('http://192.168.0.107:8000/api/courses/', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("Kurs muvaffaqiyatli yaratildi!");
+        setIsCourseModalOpen(false);
+        setCourseForm(initialCourseForm);
+        fetchCourses();
+      } else {
+        alert(data.message || "Xatolik yuz berdi");
+      }
+    } catch (err) {
+      alert("Tarmoq xatosi!");
+    } finally {
+      setIsCourseSubmitting(false);
+    }
+  };
+
+  const handleDeleteCourse = (id) => {
+    if (!window.confirm("Rostdan ham ushbu kursni o'chirmoqchimisiz?")) return;
+    fetch(`http://192.168.0.107:8000/api/courses/?id=${id}`, { method: 'DELETE' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          fetchCourses();
+        } else {
+          alert(data.message);
+        }
+      })
+      .catch(err => alert("Xatolik yuz berdi"));
+  };
+
   const handleDeleteUser = (id) => {
     if (!window.confirm("Rostdan ham bu foydalanuvchini o'chirmoqchimisiz?")) return;
     
@@ -162,6 +360,10 @@ export default function Dashboard({ user, onLogout }) {
 
     // Fetch ads
     fetchAds();
+
+    // Fetch categories and courses
+    fetchCategories();
+    fetchCourses();
   }, []);
 
   const filteredUsers = usersList.filter(u => {
@@ -207,12 +409,42 @@ export default function Dashboard({ user, onLogout }) {
               <ImageIcon size={18} /> Reklama
             </li>
 
-            <li 
-              className={`nav-item ${activeTab === 'courses' ? 'active' : ''}`}
-              onClick={() => setActiveTab('courses')}
-            >
-              <BookOpen size={18} /> Kurslar Boshqaruvi
-            </li>
+            {/* Kurslar Boshqaruvi with sub-buttons */}
+            <div className="nav-group">
+              <li 
+                className={`nav-item ${activeTab === 'categories' || activeTab === 'courses' ? 'active-parent' : ''}`}
+                onClick={() => setIsCoursesMenuOpen(!isCoursesMenuOpen)}
+                style={{ justifyContent: 'space-between', userSelect: 'none' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <BookOpen size={18} /> Kurslar Boshqaruvi
+                </div>
+                {isCoursesMenuOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+              </li>
+              {isCoursesMenuOpen && (
+                <div className="nav-sub-menu">
+                  <div 
+                    className={`nav-sub-item ${activeTab === 'categories' ? 'active' : ''}`}
+                    onClick={() => {
+                      setActiveTab('categories');
+                      fetchCategories();
+                    }}
+                  >
+                    <FolderTree size={15} /> Kategoriya
+                  </div>
+                  <div 
+                    className={`nav-sub-item ${activeTab === 'courses' ? 'active' : ''}`}
+                    onClick={() => {
+                      setActiveTab('courses');
+                      fetchCourses();
+                      fetchCategories();
+                    }}
+                  >
+                    <GraduationCap size={15} /> Kurslar
+                  </div>
+                </div>
+              )}
+            </div>
             <li 
               className={`nav-item ${activeTab === 'tests' ? 'active' : ''}`}
               onClick={() => setActiveTab('tests')}
@@ -642,6 +874,226 @@ export default function Dashboard({ user, onLogout }) {
             </div>
           </div>
         )}
+
+        {/* Categories Tab Content */}
+        {activeTab === 'categories' && (
+          <div className="dashboard-body">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <div>
+                <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <FolderTree size={24} color="#7C3AED" /> Kategoriyalar Boshqaruvi
+                </h2>
+                <p style={{ color: '#64748B', fontSize: 13, marginTop: 4 }}>
+                  Kurslar uchun yo'nalish va fan kategoriyalarini yaratish va boshqarish.
+                </p>
+              </div>
+              <button 
+                className="btn-action-purple"
+                onClick={() => {
+                  setCategoryNameInput('');
+                  setIsCategoryModalOpen(true);
+                }}
+              >
+                <Plus size={18} /> Kategoriya yaratish
+              </button>
+            </div>
+
+            <div className="data-table-container">
+              <table className="custom-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Kategoriya Nomi</th>
+                    <th>Kurslar Soni</th>
+                    <th>Yaratilgan Sana</th>
+                    <th style={{ textAlign: 'right' }}>Amallar</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {categoriesList.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: '#94A3B8' }}>
+                        Hozircha kategoriyalar yo'q. "Kategoriya yaratish" tugmasini bosing.
+                      </td>
+                    </tr>
+                  ) : (
+                    categoriesList.map(cat => (
+                      <tr key={cat.id}>
+                        <td style={{ fontWeight: 700, color: '#7C3AED' }}>#{cat.id}</td>
+                        <td style={{ fontWeight: 700, color: '#0F172A', fontSize: 15 }}>{cat.name}</td>
+                        <td>
+                          <span style={{ padding: '4px 10px', borderRadius: 8, background: '#F3E8FF', color: '#7C3AED', fontWeight: 700, fontSize: 12 }}>
+                            {cat.courses_count} ta kurs
+                          </span>
+                        </td>
+                        <td style={{ color: '#64748B', fontSize: 13 }}>{cat.created_at}</td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button 
+                            className="btn-delete-ad"
+                            title="O'chirish"
+                            onClick={() => handleDeleteCategory(cat.id)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Courses Tab Content */}
+        {activeTab === 'courses' && (
+          <div className="dashboard-body">
+            {/* Top Sub-tabs Bar */}
+            <div className="course-subtabs-bar">
+              <button 
+                className={`course-subtab-btn ${coursesTab === 'sales' ? 'active' : ''}`}
+                onClick={() => setCoursesTab('sales')}
+              >
+                <DollarSign size={16} /> Kurs sotuv bo'limi
+              </button>
+              <button 
+                className={`course-subtab-btn ${coursesTab === 'internal' ? 'active' : ''}`}
+                onClick={() => setCoursesTab('internal')}
+              >
+                <Layers size={16} /> Kurs ichki bo'limi
+                <span className="course-subtab-badge">Tez kunda</span>
+              </button>
+              <button 
+                className={`course-subtab-btn ${coursesTab === 'applications' ? 'active' : ''}`}
+                onClick={() => setCoursesTab('applications')}
+              >
+                <FileText size={16} /> Arizalar
+                <span className="course-subtab-badge">Tez kunda</span>
+              </button>
+              <button 
+                className={`course-subtab-btn ${coursesTab === 'students' ? 'active' : ''}`}
+                onClick={() => setCoursesTab('students')}
+              >
+                <Users size={16} /> O'quvchilar
+                <span className="course-subtab-badge">Tez kunda</span>
+              </button>
+            </div>
+
+            {coursesTab === 'sales' ? (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                  <div>
+                    <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A' }}>
+                      Kurslar (Sotuv Bo'limi)
+                    </h2>
+                    <p style={{ color: '#64748B', fontSize: 13 }}>
+                      Mobil ilovadagi Kurslar sahifasida ko'rinadigan barcha kurslar.
+                    </p>
+                  </div>
+                  <button 
+                    className="btn-action-purple"
+                    onClick={() => {
+                      if (categoriesList.length === 0) {
+                        alert("Kurs yaratishdan oldin kamida bitta kategoriya yaratishingiz kerak!");
+                        setActiveTab('categories');
+                        return;
+                      }
+                      setCourseForm({ ...initialCourseForm, category_id: categoriesList[0]?.id || '' });
+                      setIsCourseModalOpen(true);
+                    }}
+                  >
+                    <Plus size={18} /> Kurs yaratish
+                  </button>
+                </div>
+
+                {coursesList.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '60px 20px', background: '#FFFFFF', borderRadius: 20, border: '1px solid #E2E8F0' }}>
+                    <div style={{ width: 64, height: 64, borderRadius: 32, background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#7C3AED' }}>
+                      <GraduationCap size={32} />
+                    </div>
+                    <h3 style={{ fontSize: 18, fontWeight: 800, color: '#0F172A', marginBottom: 6 }}>Hozircha kurslar mavjud emas</h3>
+                    <p style={{ color: '#64748B', fontSize: 14, maxWidth: 450, margin: '0 auto 20px' }}>
+                      Yangi kurs qo'shish uchun "Kurs yaratish" tugmasini bosing. Kategoriya, intro video va o'qituvchilarni belgilang.
+                    </p>
+                    <button 
+                      className="btn-action-purple"
+                      onClick={() => {
+                        if (categoriesList.length === 0) {
+                          alert("Avval kategoriya yarating!");
+                          setActiveTab('categories');
+                          return;
+                        }
+                        setCourseForm({ ...initialCourseForm, category_id: categoriesList[0]?.id || '' });
+                        setIsCourseModalOpen(true);
+                      }}
+                    >
+                      <Plus size={18} /> Birinchi Kursni Yaratish
+                    </button>
+                  </div>
+                ) : (
+                  <div className="courses-grid-cards">
+                    {coursesList.map(c => (
+                      <div key={c.id} className="course-admin-card">
+                        <div className="course-card-top">
+                          {c.icon_url ? (
+                            <img src={c.icon_url} alt={c.title} className="course-card-icon" />
+                          ) : (
+                            <div className="course-card-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7C3AED' }}>
+                              <GraduationCap size={28} />
+                            </div>
+                          )}
+                          <div className="course-card-meta">
+                            <span className="course-badge-category">{c.category_name}</span>
+                            <h4 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', margin: 0 }}>{c.title}</h4>
+                            <span style={{ fontSize: 12, color: '#64748B' }}>{c.hint || 'Daraja ko\'rsatilmagan'}</span>
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: 13, color: '#475569', marginBottom: 14, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {c.description || 'Kurs tavsifi yo\'q'}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderTop: '1px solid #F1F5F9', borderBottom: '1px solid #F1F5F9', marginBottom: 12, fontSize: 12, color: '#64748B' }}>
+                          <span>👥 {c.students_count}</span>
+                          <span>⏱ {c.duration}</span>
+                          <span>📜 {c.has_certificate ? 'Sertifikatli' : 'Sertifikatsiz'}</span>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
+                          <div>
+                            <div style={{ fontSize: 11, color: '#94A3B8' }}>Narxi:</div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: '#059669' }}>{c.price}</div>
+                          </div>
+                          <button 
+                            className="btn-delete-ad" 
+                            title="O'chirish"
+                            onClick={() => handleDeleteCourse(c.id)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '80px 20px', background: '#FFFFFF', borderRadius: 20, border: '1px solid #E2E8F0' }}>
+                <div style={{ width: 64, height: 64, borderRadius: 32, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#2563EB' }}>
+                  <Layers size={32} />
+                </div>
+                <h3 style={{ fontSize: 18, fontWeight: 800, color: '#0F172A', marginBottom: 6 }}>
+                  {coursesTab === 'internal' && "Kurs ichki bo'limi"}
+                  {coursesTab === 'applications' && "Arizalar bo'limi"}
+                  {coursesTab === 'students' && "O'quvchilar bo'limi"}
+                </h3>
+                <p style={{ color: '#64748B', fontSize: 14 }}>
+                  Ushbu bo'lim keyingi bosqichda to'liq integratsiya qilinadi.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Edit User Modal */}
@@ -755,6 +1207,267 @@ export default function Dashboard({ user, onLogout }) {
                 <button type="button" className="btn-cancel" onClick={() => setIsAdModalOpen(false)}>Bekor qilish</button>
                 <button type="submit" className="btn-action-purple" disabled={isUploading}>
                   {isUploading ? "Yuklanmoqda..." : "Saqlash"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Category Creation Modal */}
+      {isCategoryModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-container" style={{ maxWidth: 460 }}>
+            <div className="modal-header">
+              <h3>Yangi Kategoriya Yaratish</h3>
+              <button className="modal-close" onClick={() => setIsCategoryModalOpen(false)}>×</button>
+            </div>
+            <form onSubmit={submitNewCategory} className="modal-body">
+              <div className="form-group">
+                <label>Kategoriya Nomi</label>
+                <input 
+                  type="text" 
+                  className="modern-input"
+                  placeholder="Masalan: Chet tillari, IT kurslari, Biznes..."
+                  value={categoryNameInput}
+                  onChange={(e) => setCategoryNameInput(e.target.value)}
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div className="modal-footer" style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button type="button" className="btn-cancel" onClick={() => setIsCategoryModalOpen(false)}>Bekor qilish</button>
+                <button type="submit" className="btn-action-purple">
+                  Yaratish
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Course Creation Modal (Sotuv Bo'limi) */}
+      {isCourseModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-container course-modal-container">
+            <div className="modal-header">
+              <div>
+                <h3 style={{ margin: 0 }}>Yangi Kurs Yaratish</h3>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748B' }}>Kurs sotuv bo'limi uchun barcha parametrlarni to'ldiring</p>
+              </div>
+              <button className="modal-close" onClick={() => setIsCourseModalOpen(false)}>×</button>
+            </div>
+
+            <form onSubmit={submitNewCourse} className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              {/* 1. Kategoriya */}
+              <div className="form-group">
+                <label>1. Kategoriya Tanlang *</label>
+                <select 
+                  className="modern-input"
+                  value={courseForm.category}
+                  onChange={(e) => setCourseForm({ ...courseForm, category: e.target.value })}
+                  required
+                >
+                  <option value="">-- Kategoriyani tanlang --</option>
+                  {categoriesList.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 2. Kurs icon rasmi */}
+              <div className="form-group">
+                <label>2. Kurs Ikonkasi (Rasm yuklash) *</label>
+                <div className="file-upload-box" style={{ padding: '20px' }}>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={(e) => setCourseForm({ ...courseForm, iconFile: e.target.files[0] })} 
+                    id="course-icon-upload"
+                    required
+                  />
+                  <label htmlFor="course-icon-upload" className="upload-label">
+                    <ImageIcon size={28} color="#7C3AED" />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>
+                      {courseForm.iconFile ? courseForm.iconFile.name : "Kurs ikonkasi rasmini tanlash"}
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* 3 & 4. Kurs nomi va Hind */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="form-group">
+                  <label>3. Kurs Nomi *</label>
+                  <input 
+                    type="text" 
+                    className="modern-input"
+                    placeholder="Masalan: English A1"
+                    value={courseForm.name}
+                    onChange={(e) => setCourseForm({ ...courseForm, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>4. Hind (Daraja / Izoh) *</label>
+                  <input 
+                    type="text" 
+                    className="modern-input"
+                    placeholder="Masalan: Beginner, Intermediate..."
+                    value={courseForm.hint}
+                    onChange={(e) => setCourseForm({ ...courseForm, hint: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* 5. Intro video link */}
+              <div className="form-group">
+                <label>5. Kurs Intro Videosi (YouTube Embed / Link)</label>
+                <input 
+                  type="text" 
+                  className="modern-input"
+                  placeholder="Masalan: https://www.youtube.com/embed/dQw4w9WgXcQ yoki youtube havolasi"
+                  value={courseForm.intro_video_url}
+                  onChange={(e) => setCourseForm({ ...courseForm, intro_video_url: e.target.value })}
+                />
+              </div>
+
+              {/* 6. Tavsif */}
+              <div className="form-group">
+                <label>6. Kurs Haqida (Description) *</label>
+                <textarea 
+                  className="modern-input"
+                  rows={4}
+                  placeholder="Kurs haqida to'liq tavsif, nimalar o'rgatilishi va afzalliklari..."
+                  value={courseForm.description}
+                  onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })}
+                  style={{ resize: 'vertical' }}
+                  required
+                />
+              </div>
+
+              {/* 7 & 8. O'quvchilar soni & Video davomiyligi */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="form-group">
+                  <label>7. O'quvchilar Soni *</label>
+                  <input 
+                    type="text" 
+                    className="modern-input"
+                    placeholder="Masalan: 12k O'quvchi"
+                    value={courseForm.students_count}
+                    onChange={(e) => setCourseForm({ ...courseForm, students_count: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>8. Video Davomiyligi *</label>
+                  <input 
+                    type="text" 
+                    className="modern-input"
+                    placeholder="Masalan: 24 Soat video"
+                    value={courseForm.duration}
+                    onChange={(e) => setCourseForm({ ...courseForm, duration: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* 9. Sertifikat */}
+              <div className="checkbox-toggle-container">
+                <input 
+                  type="checkbox" 
+                  id="has_certificate_check"
+                  checked={courseForm.has_certificate}
+                  onChange={(e) => setCourseForm({ ...courseForm, has_certificate: e.target.checked })}
+                  style={{ width: 18, height: 18, accentColor: '#7C3AED', cursor: 'pointer' }}
+                />
+                <label htmlFor="has_certificate_check" style={{ fontSize: 14, fontWeight: 600, color: '#1E293B', cursor: 'pointer' }}>
+                  9. Kurs yakunida Sertifikat beriladi 📜
+                </label>
+              </div>
+
+              {/* 10. O'qituvchilar */}
+              <div style={{ background: '#F8FAFC', padding: 16, borderRadius: 12, border: '1px solid #E2E8F0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <label style={{ fontSize: 14, fontWeight: 700, color: '#1E293B' }}>10. O'qituvchilar Ro'yxati</label>
+                  <button 
+                    type="button" 
+                    onClick={handleAddTeacherField}
+                    style={{ background: '#EDE9FE', color: '#7C3AED', border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                  >
+                    <Plus size={14} /> O'qituvchi qo'shish
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {courseForm.teachers.map((t, idx) => (
+                    <div key={idx} className="teacher-item-card">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#64748B' }}>O'qituvchi #{idx + 1}</span>
+                        {courseForm.teachers.length > 1 && (
+                          <button 
+                            type="button" 
+                            onClick={() => handleRemoveTeacherField(idx)}
+                            style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}
+                          >
+                            <Trash2 size={13} /> O'chirish
+                          </button>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <input 
+                          type="text" 
+                          className="modern-input" 
+                          placeholder="Ism Familiya (masalan: John Doe)"
+                          value={t.name}
+                          onChange={(e) => handleTeacherChange(idx, 'name', e.target.value)}
+                          required
+                        />
+                        <input 
+                          type="text" 
+                          className="modern-input" 
+                          placeholder="Yo'nalishi (masalan: Senior IELTS Tutor)"
+                          value={t.role}
+                          onChange={(e) => handleTeacherChange(idx, 'role', e.target.value)}
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: 11, color: '#64748B', display: 'block', marginBottom: 4 }}>O'qituvchi rasmi</label>
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={(e) => handleTeacherChange(idx, 'avatarFile', e.target.files[0])}
+                          style={{ fontSize: 12 }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 11. Kurs narxi */}
+              <div className="form-group">
+                <label>11. Kurs Narxi *</label>
+                <input 
+                  type="text" 
+                  className="modern-input"
+                  placeholder="Masalan: 250,000 UZS/oy yoki Bepul"
+                  value={courseForm.price}
+                  onChange={(e) => setCourseForm({ ...courseForm, price: e.target.value })}
+                  required
+                />
+              </div>
+
+              {/* Footer */}
+              <div className="modal-footer" style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button type="button" className="btn-cancel" onClick={() => setIsCourseModalOpen(false)}>Bekor qilish</button>
+                <button type="submit" className="btn-action-purple" disabled={isUploading}>
+                  {isUploading ? "Yuklanmoqda..." : "Kursni Saqlash"}
                 </button>
               </div>
             </form>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions, Platform, Linking, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,9 +11,30 @@ export default function CourseDetailScreen({ course, onBack }) {
   const insets = useSafeAreaInsets();
   const [showAllReviews, setShowAllReviews] = useState(false);
 
-  // Safe defaults if course is missing
-  const title = course?.title || 'Kurs Ma\'lumotlari';
-  
+  // Dynamic course details
+  const title = course?.name || course?.title || 'Kurs Ma\'lumotlari';
+  const rating = course?.rating || '4.8';
+  const description = course?.description || "Ushbu darslik orqali siz noldan boshlab yuqori darajagacha bilimlarga ega bo'lasiz. Har bir dars amaliy mashg'ulotlar va uy vazifalari bilan mustahkamlangan. O'z sohangizning yetuk mutaxassisi bo'lish uchun bugunoq boshlang!";
+  const studentsCount = course?.students_count || "12k O'quvchi";
+  const duration = course?.duration || "24 Soat video";
+  const certText = course?.has_certificate !== undefined ? (course.has_certificate ? "Sertifikat bor" : "Sertifikatsiz") : "Sertifikat";
+  const price = course?.price || "250,000 UZS/oy";
+
+  const teachersList = (course?.teachers && course.teachers.length > 0) ? course.teachers : [
+    { id: 1, name: 'Ali Valiyev', role: 'Senior Dasturchi', avatar_url: null },
+    { id: 2, name: 'Sardor Omonov', role: 'Backend Mentor', avatar_url: null }
+  ];
+
+  const handlePlayVideo = () => {
+    if (course?.intro_video_url) {
+      Linking.openURL(course.intro_video_url).catch(() => {
+        Alert.alert("Xatolik", "Video havolasini ochishda muammo bo'ldi");
+      });
+    } else {
+      Alert.alert("Ma'lumot", "Ushbu kurs uchun intro video havolasi biriktirilmagan.");
+    }
+  };
+
   if (showAllReviews) {
     return <ReviewsScreen onBack={() => setShowAllReviews(false)} />;
   }
@@ -35,9 +56,12 @@ export default function CourseDetailScreen({ course, onBack }) {
         
         {/* Video Placeholder */}
         <View style={styles.videoContainer}>
-          <Image source={require('./assets/video_bg.png')} style={styles.videoImage} />
+          <Image 
+            source={course?.icon_url ? { uri: course.icon_url } : (course?.icon ? { uri: course.icon } : require('./assets/video_bg.png'))} 
+            style={styles.videoImage} 
+          />
           <View style={styles.playButtonOverlay}>
-            <TouchableOpacity style={styles.playButton} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.playButton} activeOpacity={0.8} onPress={handlePlayVideo}>
               <Ionicons name="play" size={32} color="#FFF" style={{ marginLeft: 4 }} />
             </TouchableOpacity>
           </View>
@@ -49,25 +73,25 @@ export default function CourseDetailScreen({ course, onBack }) {
             <Text style={styles.courseTitle}>{title}</Text>
             <View style={styles.ratingBadge}>
               <Ionicons name="star" size={14} color="#FDB100" />
-              <Text style={styles.ratingText}>4.8</Text>
+              <Text style={styles.ratingText}>{rating}</Text>
             </View>
           </View>
           <Text style={styles.courseDescription}>
-            Ushbu darslik orqali siz noldan boshlab yuqori darajagacha bilimlarga ega bo'lasiz. Har bir dars amaliy mashg'ulotlar va uy vazifalari bilan mustahkamlangan. O'z sohangizning yetuk mutaxassisi bo'lish uchun bugunoq boshlang!
+            {description}
           </Text>
           
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Ionicons name="people-outline" size={18} color="#7c3aed" />
-              <Text style={styles.statText}>12k O'quvchi</Text>
+              <Text style={styles.statText}>{studentsCount}</Text>
             </View>
             <View style={styles.statItem}>
               <Ionicons name="time-outline" size={18} color="#7c3aed" />
-              <Text style={styles.statText}>24 Soat video</Text>
+              <Text style={styles.statText}>{duration}</Text>
             </View>
             <View style={styles.statItem}>
               <Ionicons name="document-text-outline" size={18} color="#7c3aed" />
-              <Text style={styles.statText}>Sertifikat</Text>
+              <Text style={styles.statText}>{certText}</Text>
             </View>
           </View>
         </View>
@@ -76,23 +100,18 @@ export default function CourseDetailScreen({ course, onBack }) {
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>O'qituvchilar</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.teachersScroll} contentContainerStyle={{ paddingRight: 20 }}>
-            {/* Teacher 1 */}
-            <View style={styles.teacherCardMulti}>
-              <Image source={require('./assets/teacher.png')} style={styles.teacherAvatar} />
-              <View style={styles.teacherInfo}>
-                <Text style={styles.teacherName}>Ali Valiyev</Text>
-                <Text style={styles.teacherRole}>Senior Dasturchi</Text>
+            {teachersList.map((t, idx) => (
+              <View key={t.id || idx} style={styles.teacherCardMulti}>
+                <Image 
+                  source={t.avatar_url ? { uri: t.avatar_url } : (t.avatar ? { uri: t.avatar } : require('./assets/teacher.png'))} 
+                  style={styles.teacherAvatar} 
+                />
+                <View style={styles.teacherInfo}>
+                  <Text style={styles.teacherName}>{t.name}</Text>
+                  <Text style={styles.teacherRole}>{t.role}</Text>
+                </View>
               </View>
-            </View>
-            
-            {/* Teacher 2 */}
-            <View style={styles.teacherCardMulti}>
-              <Image source={require('./assets/teacher.png')} style={styles.teacherAvatar} />
-              <View style={styles.teacherInfo}>
-                <Text style={styles.teacherName}>Sardor Omonov</Text>
-                <Text style={styles.teacherRole}>Backend Mentor</Text>
-              </View>
-            </View>
+            ))}
           </ScrollView>
         </View>
 
@@ -155,7 +174,7 @@ export default function CourseDetailScreen({ course, onBack }) {
       <View style={styles.bottomFooter}>
         <View style={styles.priceContainer}>
           <Text style={styles.priceLabel}>Kurs narxi</Text>
-          <Text style={styles.priceValue}>250,000 <Text style={styles.priceCurrency}>UZS/oy</Text></Text>
+          <Text style={styles.priceValue}>{price}</Text>
         </View>
         <TouchableOpacity style={styles.enrollButton} activeOpacity={0.8}>
           <Text style={styles.enrollButtonText}>Kursga yozilish</Text>

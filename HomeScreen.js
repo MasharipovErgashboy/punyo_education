@@ -65,6 +65,7 @@ export default function HomeScreen({ lang, onLogout, initialIsAuthenticated = fa
   }, [isAuthenticated]);
   const [activeTab, setActiveTab] = useState('home');
   const [activeCategory, setActiveCategory] = useState(null);
+  const [activeCategoryCourses, setActiveCategoryCourses] = useState(null);
   const [activeCourse, setActiveCourse] = useState(null);
   const [activeTestIntro, setActiveTestIntro] = useState(null);
   const [activeTestRun, setActiveTestRun] = useState(null);
@@ -570,14 +571,15 @@ export default function HomeScreen({ lang, onLogout, initialIsAuthenticated = fa
       ) : activeCategory ? (
         <CategoryScreen 
           category={activeCategory} 
-          onBack={() => setActiveCategory(null)} 
+          courses={activeCategoryCourses}
+          onBack={() => { setActiveCategory(null); setActiveCategoryCourses(null); }} 
           onViewCourse={(course) => activeTab === 'tests' ? setActiveTestIntro(course) : setActiveCourse(course)}
           isTest={activeTab === 'tests'}
         />
       ) : (
         <>
           {activeTab === 'home' ? renderHomeContent() : null}
-          {activeTab === 'courses' ? <CoursesScreen lang={lang} onViewAll={(cat) => setActiveCategory(cat)} onViewCourse={(course) => setActiveCourse(course)} initialFilter={coursesInitialFilter} onSubScreenToggle={setIsSubScreenOpen} /> : null}
+          {activeTab === 'courses' ? <CoursesScreen lang={lang} onViewAll={(cat, catCourses) => { setActiveCategory(cat); setActiveCategoryCourses(catCourses || null); }} onViewCourse={(course) => setActiveCourse(course)} initialFilter={coursesInitialFilter} onSubScreenToggle={setIsSubScreenOpen} /> : null}
           {activeTab === 'tests' ? <TestsScreen lang={lang} onViewAll={(cat) => setActiveCategory(cat)} onViewTest={(course) => setActiveTestIntro(course)} /> : null}
           {activeTab === 'ai' ? <AiChatScreen onKeyboardToggle={setIsKeyboardVisible} /> : null}
           {activeTab === 'profile' ? <ProfileScreen userData={userData} onNavigateToMyCourses={() => {

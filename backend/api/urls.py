@@ -1,5 +1,9 @@
 from django.urls import path
-from .views import admin_login_view, admin_stats_view, admin_users_view, admin_user_detail_view, google_auth_view, user_register_view, user_login_view, verify_otp_view, admin_ads_view
+from .views import (
+    admin_login_view, admin_stats_view, admin_users_view, admin_user_detail_view, 
+    google_auth_view, user_register_view, user_login_view, verify_otp_view, 
+    admin_ads_view, categories_view, courses_view, course_detail_view
+)
 
 urlpatterns = [
     path('auth/register/', user_register_view, name='user_register'),
@@ -11,4 +15,7 @@ urlpatterns = [
     path('admin/users/', admin_users_view, name='admin_users'),
     path('admin/users/<str:user_id>/', admin_user_detail_view, name='admin_user_detail'),
     path('admin/ads/', admin_ads_view, name='admin_ads'),
+    path('categories/', categories_view, name='categories'),
+    path('courses/', courses_view, name='courses'),
+    path('courses/<int:course_id>/', course_detail_view, name='course_detail'),
 ]

@@ -4,7 +4,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 import datetime
-from .models import CustomUser, Ad
+import json
+from .models import CustomUser, Ad, Category, Course, Teacher
 
 PENDING_USERS = {}
 
@@ -365,3 +366,238 @@ def admin_ads_view(request):
             ad.delete()
             return Response({'success': True, 'message': 'Reklama muvaffaqiyatli o\'chirildi!'})
         return Response({'success': False, 'message': 'Bunday reklama topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET', 'POST', 'DELETE'])
+@permission_classes([AllowAny])
+def categories_view(request):
+    if request.method == 'GET':
+        categories = Category.objects.all().order_by('-created_at')
+        data = []
+        for cat in categories:
+            data.append({
+                'id': cat.id,
+                'name': cat.name,
+                'courses_count': cat.courses.count(),
+                'created_at': cat.created_at.strftime('%d.%m.%Y %H:%M')
+            })
+        return Response({'success': True, 'count': len(data), 'categories': data}, status=status.HTTP_200_OK)
+
+    elif request.method == 'POST':
+        name = request.data.get('name', '').strip()
+        if not name:
+            return Response({'success': False, 'message': 'Kategoriya nomi kiritilishi shart!'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if Category.objects.filter(name__iexact=name).exists():
+            return Response({'success': False, 'message': 'Bunday kategoriya allaqachon mavjud!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        category = Category.objects.create(name=name)
+        return Response({
+            'success': True,
+            'message': 'Kategoriya muvaffaqiyatli yaratildi!',
+            'category': {
+                'id': category.id,
+                'name': category.name,
+                'courses_count': 0,
+                'created_at': category.created_at.strftime('%d.%m.%Y %H:%M')
+            }
+        }, status=status.HTTP_201_CREATED)
+
+    elif request.method == 'DELETE':
+        cat_id = request.GET.get('id') or request.data.get('id')
+        if not cat_id:
+            return Response({'success': False, 'message': 'Kategoriya ID berilmadi!'}, status=status.HTTP_400_BAD_REQUEST)
+        cat = Category.objects.filter(id=cat_id).first()
+        if cat:
+            cat.delete()
+            return Response({'success': True, 'message': 'Kategoriya o\'chirildi!'})
+        return Response({'success': False, 'message': 'Kategoriya topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET', 'POST', 'DELETE'])
+@permission_classes([AllowAny])
+def courses_view(request):
+    if request.method == 'GET':
+        category_id = request.GET.get('category_id')
+        category_name = request.GET.get('category')
+        
+        courses_qs = Course.objects.all().select_related('category').prefetch_related('teachers')
+        if category_id:
+            courses_qs = courses_qs.filter(category_id=category_id)
+        elif category_name:
+            courses_qs = courses_qs.filter(category__name__iexact=category_name)
+
+        data = []
+        for c in courses_qs:
+            icon_url = request.build_absolute_uri(c.icon.url) if c.icon else None
+            teachers_list = []
+            for t in c.teachers.all():
+                avatar_url = request.build_absolute_uri(t.avatar.url) if t.avatar else None
+                teachers_list.append({
+                    'id': t.id,
+                    'name': t.name,
+                    'role': t.role,
+                    'avatar_url': avatar_url,
+                    'avatar': avatar_url
+                })
+
+            data.append({
+                'id': c.id,
+                'category_id': c.category_id,
+                'category_name': c.category.name,
+                'title': c.title,
+                'name': c.title,
+                'hint': c.hint,
+                'icon_url': icon_url,
+                'icon': icon_url,
+                'intro_video_url': c.intro_video_url,
+                'description': c.description,
+                'students_count': c.students_count,
+                'duration': c.duration,
+                'has_certificate': c.has_certificate,
+                'price': c.price,
+                'rating': c.rating,
+                'teachers': teachers_list,
+                'created_at': c.created_at.strftime('%d.%m.%Y %H:%M')
+            })
+        return Response({'success': True, 'count': len(data), 'courses': data}, status=status.HTTP_200_OK)
+
+    elif request.method == 'POST':
+        category_id = request.data.get('category_id') or request.data.get('category')
+        title = (request.data.get('title') or request.data.get('name') or '').strip()
+        hint = request.data.get('hint', '').strip()
+        intro_video_url = request.data.get('intro_video_url', '').strip()
+        description = request.data.get('description', '').strip()
+        students_count = request.data.get('students_count', "0 o'quvchi").strip()
+        duration = request.data.get('duration', '0 soat').strip()
+        has_certificate_raw = request.data.get('has_certificate')
+        has_certificate = str(has_certificate_raw).lower() in ['true', '1', 'yes']
+        price = request.data.get('price', "0 UZS").strip()
+
+        if not category_id:
+            return Response({'success': False, 'message': 'Kategoriya tanlanishi shart!'}, status=status.HTTP_400_BAD_REQUEST)
+        category = Category.objects.filter(id=category_id).first()
+        if not category:
+            return Response({'success': False, 'message': 'Bunday kategoriya topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not title:
+            return Response({'success': False, 'message': 'Kurs nomi kiritilishi shart!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        icon_file = request.FILES.get('icon')
+
+        course = Course.objects.create(
+            category=category,
+            title=title,
+            hint=hint,
+            icon=icon_file,
+            intro_video_url=intro_video_url,
+            description=description,
+            students_count=students_count,
+            duration=duration,
+            has_certificate=has_certificate,
+            price=price
+        )
+
+        # Teachers handling
+        teachers_raw = request.data.get('teachers')
+        if teachers_raw:
+            try:
+                teachers_list = json.loads(teachers_raw) if isinstance(teachers_raw, str) else teachers_raw
+                for idx, t_data in enumerate(teachers_list):
+                    t_name = t_data.get('name', '').strip()
+                    t_role = t_data.get('role', '').strip()
+                    if t_name:
+                        avatar_file = request.FILES.get(f'teacher_avatar_{idx}')
+                        Teacher.objects.create(
+                            course=course,
+                            name=t_name,
+                            role=t_role,
+                            avatar=avatar_file
+                        )
+            except Exception as e:
+                print("Error parsing teachers:", e)
+
+        icon_url = request.build_absolute_uri(course.icon.url) if course.icon else None
+        teachers_res = []
+        for t in course.teachers.all():
+            avatar_url = request.build_absolute_uri(t.avatar.url) if t.avatar else None
+            teachers_res.append({
+                'id': t.id,
+                'name': t.name,
+                'role': t.role,
+                'avatar_url': avatar_url,
+                'avatar': avatar_url
+            })
+
+        course_data = {
+            'id': course.id,
+            'category_id': course.category_id,
+            'category_name': course.category.name,
+            'title': course.title,
+            'name': course.title,
+            'hint': course.hint,
+            'icon_url': icon_url,
+            'icon': icon_url,
+            'intro_video_url': course.intro_video_url,
+            'description': course.description,
+            'students_count': course.students_count,
+            'duration': course.duration,
+            'has_certificate': course.has_certificate,
+            'price': course.price,
+            'rating': course.rating,
+            'teachers': teachers_res,
+            'created_at': course.created_at.strftime('%d.%m.%Y %H:%M')
+        }
+
+        return Response({'success': True, 'message': 'Kurs muvaffaqiyatli yaratildi!', 'course': course_data}, status=status.HTTP_201_CREATED)
+
+    elif request.method == 'DELETE':
+        course_id = request.GET.get('id') or request.data.get('id')
+        if not course_id:
+            return Response({'success': False, 'message': 'Kurs ID berilmadi!'}, status=status.HTTP_400_BAD_REQUEST)
+        c = Course.objects.filter(id=course_id).first()
+        if c:
+            c.delete()
+            return Response({'success': True, 'message': 'Kurs o\'chirildi!'})
+        return Response({'success': False, 'message': 'Kurs topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def course_detail_view(request, course_id):
+    c = Course.objects.filter(id=course_id).select_related('category').prefetch_related('teachers').first()
+    if not c:
+        return Response({'success': False, 'message': 'Kurs topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+    icon_url = request.build_absolute_uri(c.icon.url) if c.icon else None
+    teachers_list = []
+    for t in c.teachers.all():
+        avatar_url = request.build_absolute_uri(t.avatar.url) if t.avatar else None
+        teachers_list.append({
+            'id': t.id,
+            'name': t.name,
+            'role': t.role,
+            'avatar_url': avatar_url,
+            'avatar': avatar_url
+        })
+
+    data = {
+        'id': c.id,
+        'category_id': c.category_id,
+        'category_name': c.category.name,
+        'title': c.title,
+        'name': c.title,
+        'hint': c.hint,
+        'icon_url': icon_url,
+        'icon': icon_url,
+        'intro_video_url': c.intro_video_url,
+        'description': c.description,
+        'students_count': c.students_count,
+        'duration': c.duration,
+        'has_certificate': c.has_certificate,
+        'price': c.price,
+        'rating': c.rating,
+        'teachers': teachers_list,
+        'created_at': c.created_at.strftime('%d.%m.%Y %H:%M')
+    }
+    return Response({'success': True, 'course': data}, status=status.HTTP_200_OK)

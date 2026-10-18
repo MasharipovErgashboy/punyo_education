@@ -4,9 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export default function CategoryScreen({ category, onBack, onViewCourse, isTest }) {
+export default function CategoryScreen({ category, onBack, onViewCourse, isTest, courses: propCourses }) {
   const insets = useSafeAreaInsets();
-  // Course mock data based on the category
+  // Course mock data based on the category (fallback for tests)
   const getCourses = () => {
     if (category === 'Chet tillari') {
       return [
@@ -29,16 +29,24 @@ export default function CategoryScreen({ category, onBack, onViewCourse, isTest 
     return [];
   };
 
-  const courses = getCourses();
+  const courses = (propCourses && propCourses.length > 0) ? propCourses : getCourses();
 
-  const CourseItem = ({ icon, title, subtitle }) => (
+  const CourseItem = ({ course, icon, title, subtitle }) => (
     <View style={styles.courseItem}>
-      <Image source={icon} style={styles.courseIcon} resizeMode="contain" />
+      <Image 
+        source={icon ? (typeof icon === 'string' ? { uri: icon } : icon) : require('./assets/uk.png')} 
+        style={styles.courseIcon} 
+        resizeMode="contain" 
+      />
       <View style={styles.courseInfo}>
         <Text style={styles.courseTitle}>{title}{isTest ? " - Test" : ""}</Text>
         <Text style={styles.courseSubtitle}>{subtitle}</Text>
       </View>
-      <TouchableOpacity style={styles.viewButton} activeOpacity={0.8} onPress={() => onViewCourse && onViewCourse({ title: title + (isTest ? " - Test" : "") })}>
+      <TouchableOpacity 
+        style={styles.viewButton} 
+        activeOpacity={0.8} 
+        onPress={() => onViewCourse && onViewCourse(course || { title: title + (isTest ? " - Test" : "") })}
+      >
         <Text style={styles.viewButtonText}>{isTest ? "Test bajarish" : "Ko'rish"}</Text>
       </TouchableOpacity>
     </View>
@@ -63,7 +71,13 @@ export default function CategoryScreen({ category, onBack, onViewCourse, isTest 
         
         <View style={styles.courseList}>
           {courses.map((c, idx) => (
-            <CourseItem key={idx} icon={c.icon} title={c.title} subtitle={c.subtitle} />
+            <CourseItem 
+              key={c.id || idx} 
+              course={c}
+              icon={c.icon_url ? { uri: c.icon_url } : (c.icon ? (typeof c.icon === 'string' ? { uri: c.icon } : c.icon) : require('./assets/uk.png'))} 
+              title={c.name || c.title} 
+              subtitle={c.hint || c.subtitle} 
+            />
           ))}
         </View>
 
