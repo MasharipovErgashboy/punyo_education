@@ -174,6 +174,14 @@ export default function Dashboard({ user, onLogout }) {
   const [isApplicationsLoading, setIsApplicationsLoading] = useState(false);
   const [processingAppId, setProcessingAppId] = useState(null);
 
+  // Enrolled Students State
+  const [enrolledStudentsList, setEnrolledStudentsList] = useState([]);
+  const [enrolledStudentsStats, setEnrolledStudentsStats] = useState({ total_enrolled: 0, unique_students: 0, courses_count: 0 });
+  const [selectedCourseFilter, setSelectedCourseFilter] = useState('all');
+  const [enrolledStudentsSearch, setEnrolledStudentsSearch] = useState('');
+  const [isEnrolledStudentsLoading, setIsEnrolledStudentsLoading] = useState(false);
+
+
 
   const [stats, setStats] = useState({
     total_students: 12450,
@@ -337,6 +345,7 @@ export default function Dashboard({ user, onLogout }) {
       }
       fetchApplications();
       fetchCourses();
+      fetchEnrolledStudents();
     } else {
       alert(message || "Xatolik yuz berdi!");
     }
@@ -363,6 +372,60 @@ export default function Dashboard({ user, onLogout }) {
     }
     setProcessingAppId(null);
   };
+
+  const fetchEnrolledStudents = () => {
+    setIsEnrolledStudentsLoading(true);
+    const tryUrls = [
+      'http://192.168.0.107:8000/api/course-students/',
+      'http://127.0.0.1:8000/api/course-students/'
+    ];
+
+    const doFetch = (index = 0) => {
+      if (index >= tryUrls.length) {
+        setIsEnrolledStudentsLoading(false);
+        return;
+      }
+      fetch(tryUrls[index])
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.students) {
+            setEnrolledStudentsList(data.students);
+            if (data.stats) {
+              setEnrolledStudentsStats(data.stats);
+            }
+          }
+          setIsEnrolledStudentsLoading(false);
+        })
+        .catch(() => {
+          doFetch(index + 1);
+        });
+    };
+
+    doFetch(0);
+  };
+
+  const handleUnenrollStudent = async (enrollmentId, studentName, courseTitle) => {
+    if (!window.confirm(`${studentName}ni "${courseTitle}" kursidan chiqarmoqchimisiz?`)) return;
+
+    const tryUrls = [
+      `http://192.168.0.107:8000/api/course-students/${enrollmentId}/`,
+      `http://127.0.0.1:8000/api/course-students/${enrollmentId}/`
+    ];
+
+    for (const url of tryUrls) {
+      try {
+        const res = await fetch(url, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          alert("O'quvchi kursdan muvaffaqiyatli chiqarildi!");
+          fetchEnrolledStudents();
+          fetchCourses();
+          break;
+        }
+      } catch (e) {}
+    }
+  };
+
 
 
   const handleOpenCreateCategory = () => {
@@ -1075,10 +1138,12 @@ export default function Dashboard({ user, onLogout }) {
     fetchCategories();
     fetchCourses();
     fetchApplications();
+    fetchEnrolledStudents();
 
-    // Auto-refresh applications every 5 seconds
+    // Auto-refresh applications and enrolled students every 5 seconds
     const appInterval = setInterval(() => {
       fetchApplications();
+      fetchEnrolledStudents();
     }, 5000);
 
     return () => clearInterval(appInterval);
@@ -1716,10 +1781,17 @@ export default function Dashboard({ user, onLogout }) {
 
               <button 
                 className={`course-subtab-btn ${coursesTab === 'students' ? 'active' : ''}`}
-                onClick={() => setCoursesTab('students')}
+                onClick={() => {
+                  setCoursesTab('students');
+                  fetchEnrolledStudents();
+                }}
               >
-                <Users size={16} /> O'quvchilar
-                <span className="course-subtab-badge">Tez kunda</span>
+                <Users size={16} /> O'quvchilar bo'limi
+                {enrolledStudentsList.length > 0 && (
+                  <span style={{ marginLeft: 6, padding: '2px 7px', borderRadius: 10, fontSize: 11, fontWeight: 700, background: '#10B981', color: '#FFF' }}>
+                    {enrolledStudentsList.length}
+                  </span>
+                )}
               </button>
             </div>
 
@@ -3754,16 +3826,305 @@ export default function Dashboard({ user, onLogout }) {
             </div>
           </div>
         ) : (
-          <div style={{ textAlign: 'center', padding: '80px 20px', background: '#FFFFFF', borderRadius: 20, border: '1px solid #E2E8F0' }}>
-            <div style={{ width: 64, height: 64, borderRadius: 32, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#2563EB' }}>
-              <Layers size={32} />
+          <div className="enrolled-students-management-container" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {/* Header & Stats Banner */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+              <div>
+                <h3 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>
+                  O'quvchilar Bo'limi
+                </h3>
+                <p style={{ color: '#64748B', fontSize: 13, margin: 0 }}>
+                  Arizasi tasdiqlanib, kurslarga qabul qilingan o'quvchilar ro'yxati va ularning o'quv ko'rsatkichlari
+                </p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button 
+                  onClick={fetchEnrolledStudents}
+                  disabled={isEnrolledStudentsLoading}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '8px 16px',
+                    borderRadius: 10,
+                    border: '1px solid #E2E8F0',
+                    background: '#FFFFFF',
+                    color: '#475569',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <RefreshCw size={15} className={isEnrolledStudentsLoading ? 'spin-anim' : ''} />
+                  Yangilash
+                </button>
+              </div>
             </div>
-            <h3 style={{ fontSize: 18, fontWeight: 800, color: '#0F172A', marginBottom: 6 }}>
-              O'quvchilar bo'limi
-            </h3>
-            <p style={{ color: '#64748B', fontSize: 14 }}>
-              Ushbu bo'lim keyingi bosqichda to'liq integratsiya qilinadi.
-            </p>
+
+            {/* 4 Stats Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 16 }}>
+              <div style={{ background: '#FFFFFF', padding: '18px 20px', borderRadius: 16, border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 16, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <div style={{ width: 48, height: 48, borderRadius: 12, background: '#EFF6FF', color: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Users size={24} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Jami Biriktirilgan</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#0F172A' }}>{enrolledStudentsStats.total_enrolled || enrolledStudentsList.length}</div>
+                </div>
+              </div>
+
+              <div style={{ background: '#FFFFFF', padding: '18px 20px', borderRadius: 16, border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 16, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <div style={{ width: 48, height: 48, borderRadius: 12, background: '#F5F3FF', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <UserCheck size={24} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Noyob Talabalar</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#7C3AED' }}>{enrolledStudentsStats.unique_students || (new Set(enrolledStudentsList.map(s => s.user_id || s.email))).size}</div>
+                </div>
+              </div>
+
+              <div style={{ background: '#FFFFFF', padding: '18px 20px', borderRadius: 16, border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 16, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <div style={{ width: 48, height: 48, borderRadius: 12, background: '#DCFCE7', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <BookOpen size={24} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Kurslar Soni</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#16A34A' }}>{enrolledStudentsStats.courses_count || (new Set(enrolledStudentsList.map(s => s.course_id))).size}</div>
+                </div>
+              </div>
+
+              <div style={{ background: '#FFFFFF', padding: '18px 20px', borderRadius: 16, border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 16, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <div style={{ width: 48, height: 48, borderRadius: 12, background: '#FEF3C7', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CheckCircle2 size={24} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>O'quvchi Holati</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#D97706' }}>100% Faol</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Bar & Search */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, background: '#FFFFFF', padding: '12px 16px', borderRadius: 14, border: '1px solid #E2E8F0' }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#64748B' }}>Kurs bo'yicha:</span>
+                  <select
+                    value={selectedCourseFilter}
+                    onChange={(e) => setSelectedCourseFilter(e.target.value)}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      border: '1px solid #CBD5E1',
+                      background: '#F8FAFC',
+                      color: '#1E293B',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="all">Barcha kurslar ({enrolledStudentsList.length})</option>
+                    {coursesList.map(c => (
+                      <option key={c.id} value={c.id}>{c.title}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Search Box */}
+              <div style={{ position: 'relative', minWidth: 260 }}>
+                <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                <input 
+                  type="text"
+                  placeholder="Ism, telefon yoki kurs bo'yicha..."
+                  value={enrolledStudentsSearch}
+                  onChange={(e) => setEnrolledStudentsSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px 8px 36px',
+                    borderRadius: 8,
+                    border: '1px solid #CBD5E1',
+                    fontSize: 13,
+                    background: '#F8FAFC',
+                    outline: 'none',
+                    color: '#0F172A',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Table or Empty State */}
+            {(() => {
+              const filteredStudents = enrolledStudentsList.filter(student => {
+                const matchesCourse = selectedCourseFilter === 'all' || String(student.course_id) === String(selectedCourseFilter);
+                const q = enrolledStudentsSearch.toLowerCase();
+                const matchesSearch = !q || 
+                  (student.name && student.name.toLowerCase().includes(q)) ||
+                  (student.email && student.email.toLowerCase().includes(q)) ||
+                  (student.phone && student.phone.toLowerCase().includes(q)) ||
+                  (student.course_title && student.course_title.toLowerCase().includes(q)) ||
+                  (student.user_id && student.user_id.toLowerCase().includes(q));
+                return matchesCourse && matchesSearch;
+              });
+
+              if (filteredStudents.length === 0) {
+                return (
+                  <div style={{ textAlign: 'center', padding: '60px 20px', background: '#FFFFFF', borderRadius: 20, border: '1px solid #E2E8F0' }}>
+                    <div style={{ width: 64, height: 64, borderRadius: 32, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#2563EB' }}>
+                      <Users size={32} />
+                    </div>
+                    <h3 style={{ fontSize: 17, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>
+                      {enrolledStudentsList.length === 0 ? "Hozircha biriktirilgan o'quvchilar mavjud emas" : "Qidiruv bo'yicha o'quvchilar topilmadi"}
+                    </h3>
+                    <p style={{ color: '#64748B', fontSize: 13, maxWidth: 440, margin: '0 auto' }}>
+                      {enrolledStudentsList.length === 0 
+                        ? "Arizalar bo'limidan o'quvchilar arizasini tasdiqlaganingizda, ular avtomatik tarzda ushbu jadvalga qo'shiladi va ilovadagi Mening kurslarim bo'limida ko'rinadi."
+                        : "Qidiruv so'zini yoki kurs filtrini o'zgartirib ko'ring."}
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div style={{ background: '#FFFFFF', borderRadius: 16, border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#475569', fontWeight: 600 }}>
+                        <th style={{ padding: '14px 16px', width: 50 }}>#</th>
+                        <th style={{ padding: '14px 16px' }}>O'quvchi ma'lumotlari</th>
+                        <th style={{ padding: '14px 16px' }}>Telefon raqami</th>
+                        <th style={{ padding: '14px 16px' }}>Biriktirilgan kurs</th>
+                        <th style={{ padding: '14px 16px' }}>Qabul qilingan sana</th>
+                        <th style={{ padding: '14px 16px' }}>O'zlashtirish</th>
+                        <th style={{ padding: '14px 16px' }}>Holat</th>
+                        <th style={{ padding: '14px 16px', textAlign: 'right' }}>Amallar</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredStudents.map((st, idx) => (
+                        <tr key={st.id || idx} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' }}>
+                          <td style={{ padding: '14px 16px', color: '#64748B', fontWeight: 600 }}>
+                            {idx + 1}
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                              <div style={{
+                                width: 38,
+                                height: 38,
+                                borderRadius: 19,
+                                background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+                                color: '#FFFFFF',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 700,
+                                fontSize: 15,
+                                flexShrink: 0
+                              }}>
+                                {st.name ? st.name.charAt(0).toUpperCase() : 'U'}
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: 700, color: '#0F172A', fontSize: 14 }}>
+                                  {st.name || 'Noma\'lum o\'quvchi'}
+                                </div>
+                                <div style={{ color: '#64748B', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                                  <span style={{ background: '#F1F5F9', padding: '1px 6px', borderRadius: 4, fontWeight: 600, fontSize: 11 }}>
+                                    {st.user_id || `ID: ${st.user_pk}`}
+                                  </span>
+                                  {st.email && <span>{st.email}</span>}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#334155', fontWeight: 600, fontSize: 12 }}>
+                              <Phone size={13} style={{ color: '#64748B' }} />
+                              {st.phone || 'Kiritilmagan'}
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <div>
+                              <div style={{ fontWeight: 700, color: '#1E293B', fontSize: 13 }}>
+                                {st.course_title}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                                {st.course_category && (
+                                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: '#EDE9FE', color: '#6D28D9', fontWeight: 600 }}>
+                                    {st.course_category}
+                                  </span>
+                                )}
+                                {st.course_price && (
+                                  <span style={{ fontSize: 11, color: '#64748B', fontWeight: 600 }}>
+                                    {typeof st.course_price === 'number' ? st.course_price.toLocaleString() : st.course_price} so'm
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#475569', fontSize: 12 }}>
+                              <Clock size={13} style={{ color: '#94A3B8' }} />
+                              {st.enrolled_at || 'Yaqinda'}
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 16px', minWidth: 140 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div style={{ flex: 1, height: 6, borderRadius: 3, background: '#E2E8F0', overflow: 'hidden' }}>
+                                <div style={{ width: `${st.progress_percent || 0}%`, height: '100%', background: '#10B981', borderRadius: 3 }} />
+                              </div>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', minWidth: 32 }}>
+                                {st.progress_percent || 0}%
+                              </span>
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              padding: '4px 10px',
+                              borderRadius: 20,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              background: '#DCFCE7',
+                              color: '#15803D',
+                            }}>
+                              <span style={{ width: 6, height: 6, borderRadius: 3, background: '#16A34A' }} />
+                              Faol o'quvchi
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                            <button
+                              onClick={() => handleUnenrollStudent(st.id, st.name, st.course_title)}
+                              title="Kursdan chiqarish"
+                              style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: 8,
+                                border: '1px solid #FECACA',
+                                background: '#FEF2F2',
+                                color: '#DC2626',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                              }}
+                              onMouseOver={(e) => { e.currentTarget.style.background = '#FEE2E2'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.background = '#FEF2F2'; }}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
           </div>
         )}
 

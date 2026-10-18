@@ -1482,3 +1482,84 @@ def user_enrolled_courses_view(request):
     return Response({'success': True, 'count': len(courses_data), 'courses': courses_data}, status=status.HTTP_200_OK)
 
 
+@api_view(['GET', 'DELETE'])
+@permission_classes([AllowAny])
+def course_enrolled_students_view(request, enrollment_id=None):
+    from django.db.models import Q
+
+    if request.method == 'GET':
+        course_id = request.GET.get('course_id')
+        search_query = request.GET.get('search', '').strip()
+
+        qs = UserCourseEnrollment.objects.select_related('user', 'course', 'course__category').all()
+
+        if course_id and course_id != 'all':
+            qs = qs.filter(course_id=course_id)
+
+        if search_query:
+            qs = qs.filter(
+                Q(user__name__icontains=search_query) |
+                Q(user__email__icontains=search_query) |
+                Q(user__phone__icontains=search_query) |
+                Q(user__user_id__icontains=search_query) |
+                Q(course__title__icontains=search_query)
+            )
+
+        students_data = []
+        for enr in qs:
+            app = CourseApplication.objects.filter(user=enr.user, course=enr.course, status='approved').first()
+            students_data.append({
+                'id': enr.id,
+                'enrollment_id': enr.id,
+                'user_id': enr.user.user_id,
+                'name': enr.user.name or (app.user_name if app else 'Talaba'),
+                'email': enr.user.email or (app.user_email if app else ''),
+                'phone': enr.user.phone or (app.user_phone if app else ''),
+                'course_id': enr.course.id,
+                'course_title': enr.course.title,
+                'course_category': enr.course.category.name if enr.course.category else '',
+                'course_price': enr.course.price,
+                'progress_percent': enr.progress_percent,
+                'enrolled_at': enr.enrolled_at.strftime('%d.%m.%Y %H:%M') if enr.enrolled_at else '',
+                'status': 'Faol o\'quvchi',
+            })
+
+        unique_users_count = qs.values('user').distinct().count()
+        unique_courses_count = qs.values('course').distinct().count()
+
+        return Response({
+            'success': True,
+            'count': len(students_data),
+            'students': students_data,
+            'stats': {
+                'total_enrolled': len(students_data),
+                'unique_students': unique_users_count,
+                'courses_count': unique_courses_count,
+            }
+        }, status=status.HTTP_200_OK)
+
+    elif request.method == 'DELETE':
+        enr_id = enrollment_id or request.GET.get('id') or request.data.get('id')
+        if not enr_id:
+            return Response({'success': False, 'message': 'Enrollment ID ko\'rsatilmadi!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        enr = UserCourseEnrollment.objects.filter(id=enr_id).first()
+        if not enr:
+            return Response({'success': False, 'message': 'O\'quvchi topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+        course = enr.course
+        user = enr.user
+        enr.delete()
+
+        # Update counters
+        if course:
+            course.students_count = str(UserCourseEnrollment.objects.filter(course=course).count())
+            course.save(update_fields=['students_count'])
+        if user:
+            user.courses_count = UserCourseEnrollment.objects.filter(user=user).count()
+            user.save(update_fields=['courses_count'])
+
+        return Response({'success': True, 'message': 'O\'quvchi kursdan muvaffaqiyatli chiqarildi!'}, status=status.HTTP_200_OK)
+
+
+

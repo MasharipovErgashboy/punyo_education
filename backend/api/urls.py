@@ -4,7 +4,7 @@ from .views import (
     google_auth_view, user_register_view, user_login_view, verify_otp_view, 
     admin_ads_view, categories_view, courses_view, course_detail_view,
     course_modules_view, course_lessons_view, course_tests_view, course_certificates_view,
-    course_applications_view, user_enrolled_courses_view
+    course_applications_view, user_enrolled_courses_view, course_enrolled_students_view
 )
 
 urlpatterns = [
@@ -26,5 +26,7 @@ urlpatterns = [
     path('course-certificates/', course_certificates_view, name='course_certificates'),
     path('course-applications/', course_applications_view, name='course_applications'),
     path('course-applications/<int:application_id>/', course_applications_view, name='course_application_detail'),
+    path('course-students/', course_enrolled_students_view, name='course_enrolled_students'),
+    path('course-students/<int:enrollment_id>/', course_enrolled_students_view, name='course_enrolled_student_detail'),
     path('my-courses/', user_enrolled_courses_view, name='user_enrolled_courses'),
 ]
