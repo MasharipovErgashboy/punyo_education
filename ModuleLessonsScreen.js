@@ -147,9 +147,12 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
 
   // Mark an item as completed and move to the next item
   const handleCompleteItem = async (completedItem, resultData) => {
-    // If it's a test, save test history
+    let isTestFailed = false;
+    let updatedHistories = { ...testHistories };
+
+    // 1. If it's a test, save test history
     if (completedItem.type === 'test' && resultData) {
-      const updatedHistories = {
+      updatedHistories = {
         ...testHistories,
         [completedItem.id]: resultData,
       };
@@ -160,20 +163,14 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
         console.log('Error saving test history', e);
       }
 
-      // If user failed the test, do NOT unlock next item
       if (resultData.isPassed === false) {
-        setActiveTest(null);
-        Alert.alert(
-          "O'tish bali yetarli emas",
-          `Ushbu testdan o'tish uchun kamida ${resultData.passingPercentage}% to'plashingiz kerak. Siz ${resultData.percentage}% to'pladingiz. Keyingi darsga o'tish uchun testni qayta topshiring.`,
-          [{ text: "Tushundim", style: "default" }]
-        );
-        return;
+        isTestFailed = true;
       }
     }
 
+    // 2. Only add to completedIds if NOT a failed test
     let nextCompleted = [...completedIds];
-    if (!nextCompleted.includes(completedItem.id)) {
+    if (!isTestFailed && !nextCompleted.includes(completedItem.id)) {
       nextCompleted.push(completedItem.id);
       setCompletedIds(nextCompleted);
       try {
@@ -183,7 +180,7 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
       }
     }
 
-    // Persist completed item and test history to backend database
+    // 3. Persist completed item and test history to backend database (ALWAYS, including failed test history!)
     try {
       let currentUser = null;
       try {
@@ -209,7 +206,18 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
       console.log('Error saving progress to backend:', err);
     }
 
-    // Advance to next item
+    // 4. If test failed, return to lessons list and notify user
+    if (isTestFailed) {
+      setActiveTest(null);
+      Alert.alert(
+        "O'tish bali yetarli emas",
+        `Ushbu testdan o'tish uchun kamida ${resultData.passingPercentage}% to'plashingiz kerak. Siz ${resultData.percentage}% to'pladingiz. Tarixni ko'rish yoki testni qayta topshirish uchun test ustiga bosing.`,
+        [{ text: "Tushundim", style: "default" }]
+      );
+      return;
+    }
+
+    // 5. Advance to next item if passed
     const currentIndex = lessonsList.findIndex(x => x.id === completedItem.id);
     const nextItem = (currentIndex >= 0 && currentIndex + 1 < lessonsList.length) ? lessonsList[currentIndex + 1] : null;
 
@@ -253,8 +261,8 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
 
     const isItemCompleted = completedIds.includes(item.id);
 
-    // If completed test and has history, open history modal!
-    if (item.type === 'test' && isItemCompleted && testHistories[item.id]) {
+    // If test has history (whether passed or failed previously), OPEN HISTORY MODAL FIRST!
+    if (item.type === 'test' && testHistories && testHistories[item.id]) {
       setSelectedHistoryTest(item);
       return;
     }
@@ -365,12 +373,13 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
                   <View style={[
                     styles.lessonIconBg, 
                     isCompleted && styles.lessonIconBgCompleted, 
+                    (!isCompleted && item.type === 'test' && history) && { backgroundColor: '#FEE2E2' },
                     isLocked && styles.lessonIconBgLocked
                   ]}>
                     <Ionicons 
                       name={item.type === 'video' ? "play" : "help-circle"} 
                       size={18} 
-                      color={isLocked ? "#94A3B8" : (isCompleted ? "#059669" : "#7c3aed")} 
+                      color={isLocked ? "#94A3B8" : (isCompleted ? "#059669" : ((!isCompleted && item.type === 'test' && history) ? "#DC2626" : "#7c3aed"))} 
                     />
                   </View>
 
@@ -387,19 +396,27 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
                           {item.type === 'video' ? "Video dars" : `Test (${item.duration_minutes || 15} daq)`}
                         </Text>
                       )}
-                      {isCompleted && (
+                      {isCompleted ? (
                         <View style={styles.completedTag}>
                           <Text style={styles.completedTagText}>
                             {item.type === 'test' && history ? `${history.percentage}% (Topshirilgan)` : "Yakunlangan"}
                           </Text>
                         </View>
-                      )}
+                      ) : (item.type === 'test' && history) ? (
+                        <View style={[styles.completedTag, { backgroundColor: '#FEE2E2' }]}>
+                          <Text style={[styles.completedTagText, { color: '#DC2626' }]}>
+                            {history.percentage}% (O'tolmagan)
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
                   </View>
 
                   {/* Right Status */}
                   {isCompleted ? (
                     <Ionicons name="checkmark-circle" size={22} color="#10B981" />
+                  ) : (item.type === 'test' && history) ? (
+                    <Ionicons name="alert-circle" size={22} color="#EF4444" />
                   ) : isLocked ? (
                     <Ionicons name="lock-closed" size={19} color="#94A3B8" />
                   ) : (

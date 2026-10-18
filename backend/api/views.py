@@ -1774,13 +1774,18 @@ def course_progress_view(request):
         if not enr:
             return Response({'success': False, 'message': 'O\'quvchi ushbu kursga a\'zo emas'}, status=status.HTTP_400_BAD_REQUEST)
 
-        curr_completed = list(enr.completed_lessons or [])
-        if item_id and item_id not in curr_completed:
-            curr_completed.append(item_id)
-        if completed_ids and isinstance(completed_ids, list):
-            for cid in completed_ids:
-                if cid not in curr_completed:
-                    curr_completed.append(cid)
+        is_passed = True
+        if test_history and isinstance(test_history, dict):
+            if test_history.get('isPassed') is False:
+                is_passed = False
+
+        if completed_ids is not None and isinstance(completed_ids, list):
+            curr_completed = [cid for cid in completed_ids]
+        else:
+            curr_completed = list(enr.completed_lessons or [])
+            if item_id and is_passed and item_id not in curr_completed:
+                curr_completed.append(item_id)
+
         enr.completed_lessons = curr_completed
 
         if test_history and item_id:

@@ -159,7 +159,28 @@ export default function TestRunnerScreen({ testTitle, testData, onBack, onComple
           setTimeLeft(initialSeconds);
           setIsCompleted(false);
         }}
-        onOtherTests={onBack}
+        onOtherTests={() => {
+          if (onComplete) {
+            onComplete({
+              testId: testData?.id,
+              realId: testData?.realId || testData?.id,
+              title: testTitle || testData?.title,
+              score,
+              total: totalScore,
+              correctCount,
+              totalCount,
+              percentage,
+              isPassed,
+              timeTaken: timeTakenStr,
+              passingPercentage,
+              answers,
+              questions: questionsList,
+              completedAt: new Date().toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+            });
+          } else if (onBack) {
+            onBack();
+          }
+        }}
         onComplete={() => {
           if (onComplete) {
             onComplete({
@@ -178,7 +199,7 @@ export default function TestRunnerScreen({ testTitle, testData, onBack, onComple
               questions: questionsList,
               completedAt: new Date().toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
             });
-          } else {
+          } else if (onBack) {
             onBack();
           }
         }}

@@ -241,7 +241,10 @@ export default function TestResultScreen({
               <TouchableOpacity 
                 style={[styles.otherTestsBtn, { flex: 0.8, backgroundColor: '#F3F4F6' }]} 
                 activeOpacity={0.8} 
-                onPress={onOtherTests}
+                onPress={() => {
+                  if (onComplete) onComplete();
+                  else if (onOtherTests) onOtherTests();
+                }}
               >
                 <Text style={[styles.otherTestsBtnText, { color: '#4B5563' }]}>Chiqish</Text>
               </TouchableOpacity>
