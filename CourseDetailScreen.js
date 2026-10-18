@@ -160,18 +160,6 @@ export default function CourseDetailScreen({ course, onBack }) {
             </View>
           </View>
 
-          {courseData?.intro_video_url ? (
-            <TouchableOpacity 
-              style={styles.openInAppBadge}
-              activeOpacity={0.7}
-              onPress={handlePlayVideo}
-            >
-              <Ionicons name="logo-youtube" size={16} color="#FF0000" />
-              <Text style={styles.openInAppText}>YouTube ilovasida ochish</Text>
-              <Ionicons name="open-outline" size={13} color="#64748B" />
-            </TouchableOpacity>
-          ) : null}
-
           <Text style={styles.courseDescription}>
             {description}
           </Text>
@@ -368,25 +356,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 5,
-  },
-  openInAppBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginTop: 8,
-    marginBottom: 6,
-  },
-  openInAppText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#334155',
   },
   videoImage: {
     width: '100%',
