@@ -48,6 +48,8 @@ export default function CourseModulesScreen({ course, courseId, courseTitle = 'K
   if (selectedModule) {
     return (
       <ModuleLessonsScreen 
+        course={course}
+        courseId={activeCourseId}
         module={selectedModule}
         moduleId={selectedModule.id}
         moduleTitle={selectedModule.title} 

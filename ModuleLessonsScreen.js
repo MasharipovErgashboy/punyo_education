@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions, Platform, ActivityIndicator, Alert, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -10,7 +10,7 @@ import TestAnalysisScreen from './TestAnalysisScreen';
 
 const { width } = Dimensions.get('window');
 
-export default function ModuleLessonsScreen({ module, moduleId, moduleTitle = 'Darslar', onBack }) {
+export default function ModuleLessonsScreen({ course, courseId, module, moduleId, moduleTitle = 'Darslar', onBack }) {
   const insets = useSafeAreaInsets();
   const [activeLesson, setActiveLesson] = useState(null);
   const [activeTest, setActiveTest] = useState(null);
@@ -22,32 +22,74 @@ export default function ModuleLessonsScreen({ module, moduleId, moduleTitle = 'D
   const [isLoading, setIsLoading] = useState(true);
 
   const activeModuleId = moduleId || module?.id;
+  const activeCourseId = courseId || course?.id || course?.course_id || module?.course_id;
   const activeTitle = moduleTitle || module?.title || 'Darslar';
 
-  // Load saved completed items & test histories from AsyncStorage
-  useEffect(() => {
+  // Load progress directly from backend database (ensures wiped progress after unenrollment)
+  const fetchProgress = useCallback(async () => {
     if (!activeModuleId) return;
-    const completedKey = `@punyo_module_completed_${activeModuleId}`;
-    const historiesKey = `@punyo_module_histories_${activeModuleId}`;
 
-    Promise.all([
-      AsyncStorage.getItem(completedKey),
-      AsyncStorage.getItem(historiesKey),
-    ]).then(([completedVal, historiesVal]) => {
-      if (completedVal) {
-        try {
-          const parsed = JSON.parse(completedVal);
-          if (Array.isArray(parsed)) setCompletedIds(parsed);
-        } catch (e) {}
+    let currentUser = null;
+    try {
+      const uVal = await AsyncStorage.getItem('userData');
+      if (uVal) currentUser = JSON.parse(uVal);
+    } catch (e) {}
+
+    const params = new URLSearchParams();
+    if (activeCourseId) params.append('course_id', activeCourseId);
+    if (activeModuleId) params.append('module_id', activeModuleId);
+    if (currentUser?.id || currentUser?.user_id) params.append('user_id', currentUser.id || currentUser.user_id);
+    if (currentUser?.email) params.append('email', currentUser.email);
+    if (currentUser?.phone) params.append('phone', currentUser.phone);
+
+    try {
+      const res = await fetch(`http://192.168.0.107:8000/api/course-progress/?${params.toString()}`);
+      const data = await res.json();
+      if (data.success) {
+        if (data.enrolled === false) {
+          // Student was unenrolled / expelled by admin: clear everything immediately
+          setCompletedIds([]);
+          setTestHistories({});
+          await AsyncStorage.removeItem(`@punyo_module_completed_${activeModuleId}`);
+          await AsyncStorage.removeItem(`@punyo_module_histories_${activeModuleId}`);
+          if (onBack) onBack();
+          return;
+        }
+
+        if (Array.isArray(data.completed_ids) && data.completed_ids.length === 0) {
+          // Re-enrolled student: reset everything completely so they start fresh from zero!
+          setCompletedIds([]);
+          setTestHistories({});
+          await AsyncStorage.removeItem(`@punyo_module_completed_${activeModuleId}`);
+          await AsyncStorage.removeItem(`@punyo_module_histories_${activeModuleId}`);
+        } else {
+          setCompletedIds(data.completed_ids || []);
+          setTestHistories(data.test_histories || {});
+          await AsyncStorage.setItem(`@punyo_module_completed_${activeModuleId}`, JSON.stringify(data.completed_ids || []));
+          await AsyncStorage.setItem(`@punyo_module_histories_${activeModuleId}`, JSON.stringify(data.test_histories || {}));
+        }
       }
-      if (historiesVal) {
-        try {
-          const parsedHist = JSON.parse(historiesVal);
-          if (parsedHist && typeof parsedHist === 'object') setTestHistories(parsedHist);
-        } catch (e) {}
-      }
-    }).catch(() => {});
-  }, [activeModuleId]);
+    } catch (e) {
+      // Local fallback
+      try {
+        const completedVal = await AsyncStorage.getItem(`@punyo_module_completed_${activeModuleId}`);
+        const historiesVal = await AsyncStorage.getItem(`@punyo_module_histories_${activeModuleId}`);
+        if (completedVal) setCompletedIds(JSON.parse(completedVal));
+        if (historiesVal) setTestHistories(JSON.parse(historiesVal));
+      } catch (err) {}
+    }
+  }, [activeCourseId, activeModuleId, onBack]);
+
+  useEffect(() => {
+    fetchProgress();
+
+    // Check enrollment and progress periodically to respond to admin expulsion
+    const progressInterval = setInterval(() => {
+      fetchProgress();
+    }, 3000);
+
+    return () => clearInterval(progressInterval);
+  }, [fetchProgress]);
 
   // Fetch real lessons and tests from backend
   useEffect(() => {
@@ -139,6 +181,32 @@ export default function ModuleLessonsScreen({ module, moduleId, moduleTitle = 'D
       } catch (e) {
         console.log('Error saving completed item', e);
       }
+    }
+
+    // Persist completed item and test history to backend database
+    try {
+      let currentUser = null;
+      try {
+        const uVal = await AsyncStorage.getItem('userData');
+        if (uVal) currentUser = JSON.parse(uVal);
+      } catch (e) {}
+
+      await fetch('http://192.168.0.107:8000/api/course-progress/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          course_id: activeCourseId,
+          module_id: activeModuleId,
+          user_id: currentUser?.id || currentUser?.user_id,
+          email: currentUser?.email,
+          phone: currentUser?.phone,
+          item_id: completedItem.id,
+          test_history: (completedItem.type === 'test' && resultData) ? resultData : null,
+          completed_ids: nextCompleted,
+        })
+      });
+    } catch (err) {
+      console.log('Error saving progress to backend:', err);
     }
 
     // Advance to next item

@@ -5,7 +5,7 @@ from .views import (
     admin_ads_view, categories_view, courses_view, course_detail_view,
     course_modules_view, course_lessons_view, course_tests_view, course_certificates_view,
     course_applications_view, user_enrolled_courses_view, course_enrolled_students_view,
-    course_user_status_view
+    course_user_status_view, course_progress_view
 )
 
 urlpatterns = [
@@ -31,4 +31,5 @@ urlpatterns = [
     path('course-students/<int:enrollment_id>/', course_enrolled_students_view, name='course_enrolled_student_detail'),
     path('my-courses/', user_enrolled_courses_view, name='user_enrolled_courses'),
     path('course-status/', course_user_status_view, name='course_user_status'),
+    path('course-progress/', course_progress_view, name='course_progress'),
 ]

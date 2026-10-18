@@ -172,6 +172,8 @@ class UserCourseEnrollment(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='enrolled_students')
     enrolled_at = models.DateTimeField(auto_now_add=True)
     progress_percent = models.IntegerField(default=0)
+    completed_lessons = models.JSONField(default=list, blank=True, help_text="Tugatilgan darslar va testlar ID lari")
+    test_histories = models.JSONField(default=dict, blank=True, help_text="Ishlangan testlar natijalari")
 
     class Meta:
         unique_together = ('user', 'course')

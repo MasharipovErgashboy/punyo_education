@@ -1420,6 +1420,11 @@ def course_applications_view(request, application_id=None):
 
             # Enroll user in course
             enrollment, created = UserCourseEnrollment.objects.get_or_create(user=user, course=app.course)
+            if not created:
+                enrollment.completed_lessons = []
+                enrollment.test_histories = {}
+                enrollment.progress_percent = 0
+                enrollment.save(update_fields=['completed_lessons', 'test_histories', 'progress_percent'])
 
             # Update user courses count
             user.courses_count = UserCourseEnrollment.objects.filter(user=user).count()
@@ -1667,6 +1672,136 @@ def course_enrolled_students_view(request, enrollment_id=None):
             user.save(update_fields=['courses_count'])
 
         return Response({'success': True, 'message': 'O\'quvchi kursdan muvaffaqiyatli chiqarildi!'}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def course_progress_view(request):
+    from django.db.models import Q
+
+    if request.method == 'GET':
+        course_id = request.GET.get('course_id')
+        module_id = request.GET.get('module_id')
+        user_id = request.GET.get('user_id')
+        email = request.GET.get('email')
+        phone = request.GET.get('phone')
+
+        course = None
+        if course_id:
+            course = Course.objects.filter(id=course_id).first()
+        elif module_id:
+            mod = CourseModule.objects.filter(id=module_id).first()
+            if mod:
+                course = mod.course
+
+        if not course:
+            return Response({'success': False, 'message': 'Kurs topilmadi'}, status=status.HTTP_404_NOT_FOUND)
+
+        user = None
+        if user_id:
+            if str(user_id).isdigit():
+                user = CustomUser.objects.filter(id=int(user_id)).first()
+            if not user:
+                user = CustomUser.objects.filter(user_id=str(user_id)).first()
+        if not user and email:
+            user = CustomUser.objects.filter(email__iexact=email).first()
+        if not user and phone:
+            user = CustomUser.objects.filter(phone=phone).first()
+
+        if not user:
+            return Response({
+                'success': True,
+                'enrolled': False,
+                'completed_ids': [],
+                'test_histories': {},
+                'progress_percent': 0
+            }, status=status.HTTP_200_OK)
+
+        enr = UserCourseEnrollment.objects.filter(user=user, course=course).first()
+        if not enr:
+            return Response({
+                'success': True,
+                'enrolled': False,
+                'completed_ids': [],
+                'test_histories': {},
+                'progress_percent': 0
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            'success': True,
+            'enrolled': True,
+            'completed_ids': enr.completed_lessons or [],
+            'test_histories': enr.test_histories or {},
+            'progress_percent': enr.progress_percent or 0
+        }, status=status.HTTP_200_OK)
+
+    elif request.method == 'POST':
+        course_id = request.data.get('course_id')
+        module_id = request.data.get('module_id')
+        user_id = request.data.get('user_id')
+        email = request.data.get('email')
+        phone = request.data.get('phone')
+        item_id = request.data.get('item_id')
+        test_history = request.data.get('test_history')
+        completed_ids = request.data.get('completed_ids')
+
+        course = None
+        if course_id:
+            course = Course.objects.filter(id=course_id).first()
+        elif module_id:
+            mod = CourseModule.objects.filter(id=module_id).first()
+            if mod:
+                course = mod.course
+
+        if not course:
+            return Response({'success': False, 'message': 'Kurs topilmadi'}, status=status.HTTP_404_NOT_FOUND)
+
+        user = None
+        if user_id:
+            if str(user_id).isdigit():
+                user = CustomUser.objects.filter(id=int(user_id)).first()
+            if not user:
+                user = CustomUser.objects.filter(user_id=str(user_id)).first()
+        if not user and email:
+            user = CustomUser.objects.filter(email__iexact=email).first()
+        if not user and phone:
+            user = CustomUser.objects.filter(phone=phone).first()
+
+        if not user:
+            return Response({'success': False, 'message': 'Foydalanuvchi topilmadi'}, status=status.HTTP_404_NOT_FOUND)
+
+        enr = UserCourseEnrollment.objects.filter(user=user, course=course).first()
+        if not enr:
+            return Response({'success': False, 'message': 'O\'quvchi ushbu kursga a\'zo emas'}, status=status.HTTP_400_BAD_REQUEST)
+
+        curr_completed = list(enr.completed_lessons or [])
+        if item_id and item_id not in curr_completed:
+            curr_completed.append(item_id)
+        if completed_ids and isinstance(completed_ids, list):
+            for cid in completed_ids:
+                if cid not in curr_completed:
+                    curr_completed.append(cid)
+        enr.completed_lessons = curr_completed
+
+        if test_history and item_id:
+            curr_histories = dict(enr.test_histories or {})
+            curr_histories[item_id] = test_history
+            enr.test_histories = curr_histories
+
+        total_lessons = CourseLesson.objects.filter(module__course=course).count()
+        total_tests = CourseTest.objects.filter(module__course=course).count()
+        total_items = total_lessons + total_tests
+        if total_items > 0:
+            enr.progress_percent = min(100, int((len(curr_completed) / total_items) * 100))
+
+        enr.save(update_fields=['completed_lessons', 'test_histories', 'progress_percent'])
+
+        return Response({
+            'success': True,
+            'completed_ids': enr.completed_lessons,
+            'test_histories': enr.test_histories,
+            'progress_percent': enr.progress_percent
+        }, status=status.HTTP_200_OK)
 
 
 
