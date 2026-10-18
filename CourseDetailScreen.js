@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions, Platform, Linking, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions, Platform, Linking, Alert, ActivityIndicator, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,6 +30,8 @@ export default function CourseDetailScreen({ course, userData, onBack }) {
   const [playerError, setPlayerError] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isEnrolling, setIsEnrolling] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [enrollInfo, setEnrollInfo] = useState(null);
 
   const handleEnrollCourse = async () => {
     if (isEnrolling) return;
@@ -46,6 +48,7 @@ export default function CourseDetailScreen({ course, userData, onBack }) {
         } catch (e) {}
       }
 
+      const currentCourseTitle = courseData?.name || courseData?.title || course?.title || 'Kurs';
       const payload = {
         course_id: courseData?.id || course?.id,
         user_id: currentUser?.id || currentUser?.user_id || null,
@@ -61,16 +64,20 @@ export default function CourseDetailScreen({ course, userData, onBack }) {
       });
       const data = await res.json();
 
-      Alert.alert(
-        "Muvaffaqiyatli!",
-        "Siz ushbu kursga ariza berdingiz, sizga operatorlarimiz aloqaga chiqishadi"
-      );
+      setEnrollInfo({
+        courseTitle: currentCourseTitle,
+        userName: currentUser?.name || 'Talaba',
+        userPhone: currentUser?.phone || '+998 90 123 45 67'
+      });
+      setShowSuccessModal(true);
     } catch (err) {
       console.log('Error applying for course:', err);
-      Alert.alert(
-        "Muvaffaqiyatli!",
-        "Siz ushbu kursga ariza berdingiz, sizga operatorlarimiz aloqaga chiqishadi"
-      );
+      setEnrollInfo({
+        courseTitle: courseData?.name || courseData?.title || course?.title || 'Kurs',
+        userName: 'Talaba',
+        userPhone: '+998 90 123 45 67'
+      });
+      setShowSuccessModal(true);
     } finally {
       setIsEnrolling(false);
     }
@@ -312,11 +319,89 @@ export default function CourseDetailScreen({ course, userData, onBack }) {
         >
           {isEnrolling ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <Text style={styles.enrollButtonText}>Kursga yozilish</Text>
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Premium Application Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.successModalCard}>
+            {/* Close Button */}
+            <TouchableOpacity 
+              style={styles.modalCloseBtn}
+              onPress={() => setShowSuccessModal(false)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={18} color="#64748B" />
+            </TouchableOpacity>
+
+            {/* Glowing Icon Badge */}
+            <View style={styles.successIconWrapper}>
+              <View style={styles.successIconOuter}>
+                <View style={styles.successIconInner}>
+                  <Ionicons name="checkmark-done" size={34} color="#FFFFFF" />
+                </View>
+              </View>
+              <View style={styles.sparkleBadge}>
+                <Ionicons name="sparkles" size={14} color="#F59E0B" />
+              </View>
+            </View>
+
+            {/* Title & Description */}
+            <Text style={styles.successModalTitle}>
+              Arizangiz qabul qilindi! 🎉
+            </Text>
+            <Text style={styles.successModalSub}>
+              Siz ushbu kursga muvaffaqiyatli ariza berdingiz! Tez orada operatorlarimiz siz bilan bog'lanib, o'quv jarayoni bo'yicha to'liq ma'lumot berishadi.
+            </Text>
+
+            {/* Summary Info Card */}
+            <View style={styles.modalInfoCard}>
+              <View style={styles.infoCardRow}>
+                <View style={styles.infoCardIconBox}>
+                  <Ionicons name="book-outline" size={18} color="#7C3AED" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.infoCardLabel}>Tanlangan kurs</Text>
+                  <Text style={styles.infoCardValue} numberOfLines={1}>
+                    {enrollInfo?.courseTitle || title}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.infoCardDivider} />
+
+              <View style={styles.infoCardBottomRow}>
+                <View style={styles.statusPill}>
+                  <View style={styles.statusPillDot} />
+                  <Text style={styles.statusPillText}>Ko'rib chiqilmoqda</Text>
+                </View>
+
+                <View style={styles.operatorPill}>
+                  <Ionicons name="call-outline" size={12} color="#475569" style={{ marginRight: 4 }} />
+                  <Text style={styles.operatorPillText}>Operator aloqasi</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Confirm Button */}
+            <TouchableOpacity
+              style={styles.modalActionBtn}
+              activeOpacity={0.85}
+              onPress={() => setShowSuccessModal(false)}
+            >
+              <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.modalActionBtnText}>Tushundim, rahmat</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -635,5 +720,190 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 22,
+  },
+  successModalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    paddingTop: 32,
+    paddingBottom: 24,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+    position: 'relative',
+    shadowColor: '#34115C',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  modalCloseBtn: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  successIconWrapper: {
+    position: 'relative',
+    marginBottom: 18,
+  },
+  successIconOuter: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    backgroundColor: '#ECFDF5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#D1FAE5',
+  },
+  successIconInner: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#10B981',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  sparkleBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successModalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  successModalSub: {
+    fontSize: 13.5,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+    paddingHorizontal: 6,
+  },
+  modalInfoCard: {
+    width: '100%',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    marginBottom: 20,
+  },
+  infoCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  infoCardIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#EDE9FE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  infoCardLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+    marginBottom: 2,
+  },
+  infoCardValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  infoCardDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 10,
+  },
+  infoCardBottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+  },
+  statusPillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#D97706',
+    marginRight: 5,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  operatorPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+  },
+  operatorPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  modalActionBtn: {
+    width: '100%',
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#34115C',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#34115C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  modalActionBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
