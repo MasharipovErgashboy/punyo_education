@@ -63,7 +63,7 @@ export default function NotificationsScreen({ onBack }) {
       {/* Header */}
       <View style={[
         styles.header,
-        Platform.OS === 'ios' && { paddingTop: insets.top > 0 ? insets.top + 8 : 50 }
+        { paddingTop: insets.top > 0 ? insets.top + 8 : (Platform.OS === 'ios' ? 50 : 35) }
       ]}>
         <TouchableOpacity onPress={onBack} style={styles.iconButton} activeOpacity={0.7}>
           <Ionicons name="arrow-back" size={24} color="#333" />

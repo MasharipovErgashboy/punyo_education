@@ -77,7 +77,7 @@ export default function ProfileScreen({ userData, onNavigateToMyCourses, onNavig
       {/* Header */}
       <View style={[
         styles.header,
-        Platform.OS === 'ios' && { paddingTop: insets.top > 0 ? insets.top + 8 : 50 }
+        { paddingTop: insets.top > 0 ? insets.top + 8 : (Platform.OS === 'ios' ? 50 : 35) }
       ]}>
         <Text style={styles.headerTitle}>Profil</Text>
         <View style={styles.headerIcons}>

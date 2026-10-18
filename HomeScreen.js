@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions, Platform, StatusBar as RNStatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +24,14 @@ export default function HomeScreen({ lang, onLogout, initialIsAuthenticated = fa
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
   const [userData, setUserData] = useState(null);
+
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      RNStatusBar.setTranslucent(true);
+      RNStatusBar.setBackgroundColor('transparent');
+      RNStatusBar.setBarStyle('dark-content');
+    }
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -231,12 +239,12 @@ export default function HomeScreen({ lang, onLogout, initialIsAuthenticated = fa
 
   const renderHomeContent = () => (
     <>
-      <StatusBar style="dark" backgroundColor="#FFFFFF" translucent={false} />
+      <StatusBar style="dark" backgroundColor="transparent" translucent={true} />
       
       {/* Header */}
       <View style={[
         styles.header,
-        Platform.OS === 'ios' && { paddingTop: insets.top > 0 ? insets.top + 8 : 50 }
+        { paddingTop: insets.top > 0 ? insets.top + 8 : (Platform.OS === 'ios' ? 50 : 35) }
       ]}>
         <View style={styles.logoRow}>
           <Image source={require('./assets/logo.png')} style={styles.headerLogo} />
@@ -528,7 +536,7 @@ export default function HomeScreen({ lang, onLogout, initialIsAuthenticated = fa
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" backgroundColor="#FFFFFF" translucent={false} />
+      <StatusBar style="dark" backgroundColor="transparent" translucent={true} />
       
       {showNotifications ? (
         <NotificationsScreen onBack={() => setShowNotifications(false)} />

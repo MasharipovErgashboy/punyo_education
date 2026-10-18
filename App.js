@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, ImageBackground, Image, Dimensions, Animated, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, ImageBackground, Image, Dimensions, Animated, TouchableOpacity, StatusBar as RNStatusBar, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from './HomeScreen';
 import LoginScreen from './LoginScreen';
@@ -83,6 +83,12 @@ export default function App() {
   const t = translations[lang];
 
   useEffect(() => {
+    if (Platform.OS === 'android') {
+      RNStatusBar.setTranslucent(true);
+      RNStatusBar.setBackgroundColor('transparent');
+      RNStatusBar.setBarStyle('dark-content');
+    }
+
     // Logo breathing animation
     Animated.loop(
       Animated.sequence([
@@ -154,7 +160,7 @@ export default function App() {
   if (step === 1) {
     return (
       <View style={styles.onboardingScreen}>
-        <StatusBar style="dark" backgroundColor="#FAFAFA" translucent={false} />
+        <StatusBar style="dark" backgroundColor="transparent" translucent={true} />
         {renderDropdown()}
         
         <View style={styles.onboardingContent}>
@@ -217,7 +223,7 @@ export default function App() {
   if (step === 2) {
     return (
       <View style={styles.onboardingScreen2}>
-        <StatusBar style="dark" backgroundColor="#FAFAFA" translucent={false} />
+        <StatusBar style="dark" backgroundColor="transparent" translucent={true} />
         {renderDropdown()}
         
         <View style={styles.globeContainer}>
@@ -259,7 +265,7 @@ export default function App() {
   if (step === 3) {
     return (
       <View style={styles.onboardingScreen2}>
-        <StatusBar style="dark" backgroundColor="#FAFAFA" translucent={false} />
+        <StatusBar style="dark" backgroundColor="transparent" translucent={true} />
         {renderDropdown()}
         
         <View style={styles.globeContainer}>
@@ -308,7 +314,7 @@ export default function App() {
         style={styles.backgroundImage}
         imageStyle={{ resizeMode: 'stretch' }}
       >
-        <StatusBar style="dark" backgroundColor="#FFFFFF" translucent={false} />
+        <StatusBar style="dark" backgroundColor="transparent" translucent={true} />
         
         {/* Logo Container */}
         <View style={styles.logoContainer}>
