@@ -45,7 +45,6 @@ export default function CourseDetailScreen({ course, onBack }) {
 
   // Dynamic course details
   const title = courseData?.name || courseData?.title || 'Kurs Ma\'lumotlari';
-  const rating = courseData?.rating || '4.8';
   const description = courseData?.description || "Ushbu darslik orqali siz noldan boshlab yuqori darajagacha bilimlarga ega bo'lasiz. Har bir dars amaliy mashg'ulotlar va uy vazifalari bilan mustahkamlangan. O'z sohangizning yetuk mutaxassisi bo'lish uchun bugunoq boshlang!";
   const studentsCount = courseData?.students_count || "12k O'quvchi";
   const duration = courseData?.duration || "24 Soat video";
@@ -154,10 +153,6 @@ export default function CourseDetailScreen({ course, onBack }) {
         <View style={styles.infoSection}>
           <View style={styles.titleRow}>
             <Text style={styles.courseTitle}>{title}</Text>
-            <View style={styles.ratingBadge}>
-              <Ionicons name="star" size={14} color="#FDB100" />
-              <Text style={styles.ratingText}>{rating}</Text>
-            </View>
           </View>
 
           <Text style={styles.courseDescription}>
@@ -404,21 +399,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     color: '#222',
-    marginRight: 10,
-  },
-  ratingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF8E1',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  ratingText: {
-    marginLeft: 4,
-    fontWeight: 'bold',
-    color: '#FDB100',
-    fontSize: 14,
   },
   courseDescription: {
     fontSize: 14,
