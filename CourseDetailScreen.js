@@ -99,7 +99,7 @@ export default function CourseDetailScreen({ course, onBack }) {
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Mijozlar Fikri</Text>
             <TouchableOpacity onPress={() => setShowAllReviews(true)}>
-              <Text style={styles.seeAllText}>Barchasi ></Text>
+              <Text style={styles.seeAllText}>Barchasi {'>'}</Text>
             </TouchableOpacity>
           </View>
           

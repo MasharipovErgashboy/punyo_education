@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import CourseModulesScreen from './CourseModulesScreen';
 
 export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFilter = 'Barcha kurslar', onSubScreenToggle }) {
+  const insets = useSafeAreaInsets();
   const [activeFilter, setActiveFilter] = useState(initialFilter);
   const [selectedCourseModule, setSelectedCourseModule] = useState(null);
   
@@ -68,7 +70,10 @@ export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFi
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[
+        styles.header,
+        Platform.OS === 'ios' && { paddingTop: insets.top > 0 ? insets.top + 8 : 50 }
+      ]}>
         <Text style={styles.headerTitle}>Kurslar</Text>
         <TouchableOpacity>
           <Ionicons name="search" size={24} color="#333" />
@@ -100,7 +105,7 @@ export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFi
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Chet tillari</Text>
               <TouchableOpacity activeOpacity={0.7} onPress={() => onViewAll && onViewAll('Chet tillari')}>
-                <Text style={styles.seeAllText}>Barchasini ko'rish ></Text>
+                <Text style={styles.seeAllText}>Barchasini ko'rish {'>'}</Text>
               </TouchableOpacity>
             </View>
 
@@ -136,7 +141,7 @@ export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFi
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>IT kurslari</Text>
               <TouchableOpacity activeOpacity={0.7} onPress={() => onViewAll && onViewAll('IT kurslari')}>
-                <Text style={styles.seeAllText}>Barchasini ko'rish ></Text>
+                <Text style={styles.seeAllText}>Barchasini ko'rish {'>'}</Text>
               </TouchableOpacity>
             </View>
 

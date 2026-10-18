@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Switch, Dimensions, Modal } from 'react-native';
+import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Switch, Dimensions, Modal, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import ShopScreen from './ShopScreen';
@@ -10,6 +11,7 @@ import GamesScreen from './GamesScreen';
 const { width } = Dimensions.get('window');
 
 export default function ProfileScreen({ userData, onNavigateToMyCourses, onNavigateToMyTests, onLogout, onOpenNotifications, onSubScreenToggle }) {
+  const insets = useSafeAreaInsets();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showShop, setShowShop] = useState(false);
   const [showCertificates, setShowCertificates] = useState(false);
@@ -73,7 +75,10 @@ export default function ProfileScreen({ userData, onNavigateToMyCourses, onNavig
       <StatusBar style="dark" />
       
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[
+        styles.header,
+        Platform.OS === 'ios' && { paddingTop: insets.top > 0 ? insets.top + 8 : 50 }
+      ]}>
         <Text style={styles.headerTitle}>Profil</Text>
         <View style={styles.headerIcons}>
           <TouchableOpacity style={styles.iconButton} onPress={onOpenNotifications}>

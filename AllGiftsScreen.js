@@ -73,7 +73,7 @@ export default function AllGiftsScreen({ onBack, onSelectProduct }) {
               <View style={styles.giftImagePlaceholder}>
                 <Ionicons name={gift.icon} size={36} color="#7c3aed" />
               </View>
-              <Text style={styles.giftName} numberOfLines={2} textAlign="center">{gift.name}</Text>
+              <Text style={styles.giftName} numberOfLines={2}>{gift.name}</Text>
               <View style={styles.priceRow}>
                 <Ionicons name="logo-bitcoin" size={14} color="#FFD700" />
                 <Text style={styles.priceText}>{gift.price}</Text>

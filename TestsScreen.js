@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function TestsScreen({ lang, onViewAll, onViewTest }) {
+  const insets = useSafeAreaInsets();
   const TestItem = ({ icon, title, subtitle }) => (
     <View style={styles.courseItem}>
       <Image source={icon} style={styles.courseIcon} resizeMode="contain" />
@@ -19,7 +21,10 @@ export default function TestsScreen({ lang, onViewAll, onViewTest }) {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[
+        styles.header,
+        Platform.OS === 'ios' && { paddingTop: insets.top > 0 ? insets.top + 8 : 50 }
+      ]}>
         <Text style={styles.headerTitle}>Testlar</Text>
         <TouchableOpacity>
           <Ionicons name="search" size={24} color="#333" />
@@ -32,7 +37,7 @@ export default function TestsScreen({ lang, onViewAll, onViewTest }) {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Chet tillari</Text>
           <TouchableOpacity activeOpacity={0.7} onPress={() => onViewAll && onViewAll('Chet tillari')}>
-            <Text style={styles.seeAllText}>Barchasini ko'rish ></Text>
+            <Text style={styles.seeAllText}>Barchasini ko'rish {'>'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -68,7 +73,7 @@ export default function TestsScreen({ lang, onViewAll, onViewTest }) {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>IT kurslari</Text>
           <TouchableOpacity activeOpacity={0.7} onPress={() => onViewAll && onViewAll('IT kurslari')}>
-            <Text style={styles.seeAllText}>Barchasini ko'rish ></Text>
+            <Text style={styles.seeAllText}>Barchasini ko'rish {'>'}</Text>
           </TouchableOpacity>
         </View>
 

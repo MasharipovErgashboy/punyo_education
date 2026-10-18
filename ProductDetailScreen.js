@@ -10,10 +10,10 @@ export default function ProductDetailScreen({ product, onBack }) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   // We determine if it's a physical product based on the category (e.g., not Vaucherlar or Kuponlar)
-  const isPhysical = product.category !== 'Vaucherlar' && product.category !== 'Kuponlar' && product.category !== 'Kurslar';
+  const isPhysical = product?.category !== 'Vaucherlar' && product?.category !== 'Kuponlar' && product?.category !== 'Kurslar';
 
   // Base price parsed to number
-  const basePrice = parseInt(product.price.replace(/\s/g, ''));
+  const basePrice = parseInt((product?.price || '0').replace(/\s/g, '')) || 0;
   const totalPrice = (basePrice * quantity).toLocaleString('uz-UZ').replace(/,/g, ' ');
 
   const handleIncrement = () => setQuantity(prev => prev + 1);

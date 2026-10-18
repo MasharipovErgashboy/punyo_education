@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -18,6 +19,7 @@ import RegisterScreen from './RegisterScreen';
 const { width, height } = Dimensions.get('window');
 
 export default function HomeScreen({ lang, onLogout, initialIsAuthenticated = false }) {
+  const insets = useSafeAreaInsets();
   const [isAuthenticated, setIsAuthenticated] = useState(initialIsAuthenticated);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
@@ -232,7 +234,10 @@ export default function HomeScreen({ lang, onLogout, initialIsAuthenticated = fa
       <StatusBar style="dark" backgroundColor="#FFFFFF" translucent={false} />
       
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[
+        styles.header,
+        Platform.OS === 'ios' && { paddingTop: insets.top > 0 ? insets.top + 8 : 50 }
+      ]}>
         <View style={styles.logoRow}>
           <Image source={require('./assets/logo.png')} style={styles.headerLogo} />
           <Text style={styles.headerTitle}>PUNYO{'\n'}<Text style={styles.headerSubtitle}>EDUCATION</Text></Text>
@@ -465,7 +470,7 @@ export default function HomeScreen({ lang, onLogout, initialIsAuthenticated = fa
                 <Text style={styles.sectionSubtitle}>Eng ommabop ta'lim dasturlari</Text>
               </View>
               <TouchableOpacity activeOpacity={0.7} onPress={() => triggerAuth()}>
-                <Text style={styles.seeAllText}>Barchasi ></Text>
+                <Text style={styles.seeAllText}>Barchasi {'>'}</Text>
               </TouchableOpacity>
             </View>
 

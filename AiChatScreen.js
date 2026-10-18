@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AiHistoryScreen from './AiHistoryScreen';
 
 export default function AiChatScreen() {
+  const insets = useSafeAreaInsets();
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState('Present Perfect tense nima va qanday ishlatiladi?');
@@ -50,7 +52,10 @@ export default function AiChatScreen() {
       <StatusBar style="dark" />
       
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[
+        styles.header,
+        Platform.OS === 'ios' && { paddingTop: insets.top > 0 ? insets.top + 8 : 50 }
+      ]}>
         <View style={{ width: 34 }} />
         
         <View style={styles.headerTitleContainer}>
