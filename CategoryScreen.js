@@ -1,42 +1,24 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export default function CategoryScreen({ category, onBack, onViewCourse, isTest, courses: propCourses }) {
-  const insets = useSafeAreaInsets();
-  // Course mock data based on the category (fallback for tests)
-  const getCourses = () => {
-    if (category === 'Chet tillari') {
-      return [
-        { icon: require('./assets/uk.png'), title: "English A1", subtitle: "Beginner" },
-        { icon: require('./assets/kr.png'), title: "Korean A1", subtitle: "Beginner" },
-        { icon: require('./assets/tr.png'), title: "Turkish A1", subtitle: "Beginner" },
-        { icon: require('./assets/de.png'), title: "German A1", subtitle: "Beginner" },
-        { icon: require('./assets/es.png'), title: "Spanish A1", subtitle: "Beginner" },
-        { icon: require('./assets/uk.png'), title: "English A2", subtitle: "Elementary" },
-      ];
+const CategoryCourseItem = React.memo(({ course, iconUri, title, subtitle, isTest, onViewCourse }) => {
+  const imageSource = useMemo(() => {
+    if (iconUri) {
+      return typeof iconUri === 'string' ? { uri: iconUri, cache: 'force-cache' } : iconUri;
     }
-    if (category === 'IT kurslari') {
-      return [
-        { icon: require('./assets/python.png'), title: "Python Basics", subtitle: "Beginner • 20 dars" },
-        { icon: require('./assets/html.png'), title: "HTML & CSS", subtitle: "Beginner • 18 dars" },
-        { icon: require('./assets/js.png'), title: "JavaScript Basics", subtitle: "Beginner • 22 dars" },
-        { icon: require('./assets/python.png'), title: "Python Advanced", subtitle: "Advanced • 30 dars" },
-      ];
-    }
-    return [];
-  };
+    return require('./assets/uk.png');
+  }, [iconUri]);
 
-  const courses = (propCourses && propCourses.length > 0) ? propCourses : getCourses();
-
-  const CourseItem = ({ course, icon, title, subtitle }) => (
+  return (
     <View style={styles.courseItem}>
       <Image 
-        source={icon ? (typeof icon === 'string' ? { uri: icon } : icon) : require('./assets/uk.png')} 
+        source={imageSource} 
         style={styles.courseIcon} 
         resizeMode="contain" 
+        fadeDuration={0}
       />
       <View style={styles.courseInfo}>
         <Text style={styles.courseTitle}>{title}{isTest ? " - Test" : ""}</Text>
@@ -51,6 +33,41 @@ export default function CategoryScreen({ category, onBack, onViewCourse, isTest,
       </TouchableOpacity>
     </View>
   );
+});
+
+export default function CategoryScreen({ category, onBack, onViewCourse, isTest, courses: propCourses }) {
+  const insets = useSafeAreaInsets();
+  const [coursesList, setCoursesList] = useState(propCourses || []);
+
+  const fetchCategoryCourses = useCallback(async () => {
+    if (isTest) return;
+    try {
+      const res = await fetch(`http://192.168.0.107:8000/api/courses/?category=${encodeURIComponent(category)}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.courses)) {
+        setCoursesList(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(data.courses)) {
+            return prev;
+          }
+          return data.courses;
+        });
+      }
+    } catch (e) {
+      // silent
+    }
+  }, [category, isTest]);
+
+  useEffect(() => {
+    fetchCategoryCourses();
+    if (!isTest) {
+      const interval = setInterval(fetchCategoryCourses, 2500);
+      return () => clearInterval(interval);
+    }
+  }, [fetchCategoryCourses, isTest]);
+
+  const handleViewCourse = useCallback((c) => {
+    if (onViewCourse) onViewCourse(c);
+  }, [onViewCourse]);
 
   return (
     <View style={styles.container}>
@@ -70,13 +87,15 @@ export default function CategoryScreen({ category, onBack, onViewCourse, isTest,
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
         <View style={styles.courseList}>
-          {courses.map((c, idx) => (
-            <CourseItem 
+          {coursesList.map((c, idx) => (
+            <CategoryCourseItem 
               key={c.id || idx} 
               course={c}
-              icon={c.icon_url ? { uri: c.icon_url } : (c.icon ? (typeof c.icon === 'string' ? { uri: c.icon } : c.icon) : require('./assets/uk.png'))} 
+              iconUri={c.icon || c.icon_url} 
               title={c.name || c.title} 
               subtitle={c.hint || c.subtitle} 
+              isTest={isTest}
+              onViewCourse={handleViewCourse}
             />
           ))}
         </View>

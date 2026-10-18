@@ -57,8 +57,9 @@ export default function CourseDetailScreen({ course, onBack }) {
         {/* Video Placeholder */}
         <View style={styles.videoContainer}>
           <Image 
-            source={course?.icon_url ? { uri: course.icon_url } : (course?.icon ? { uri: course.icon } : require('./assets/video_bg.png'))} 
+            source={course?.icon_url ? { uri: course.icon_url, cache: 'force-cache' } : (course?.icon ? { uri: course.icon, cache: 'force-cache' } : require('./assets/video_bg.png'))} 
             style={styles.videoImage} 
+            fadeDuration={0}
           />
           <View style={styles.playButtonOverlay}>
             <TouchableOpacity style={styles.playButton} activeOpacity={0.8} onPress={handlePlayVideo}>
@@ -103,8 +104,9 @@ export default function CourseDetailScreen({ course, onBack }) {
             {teachersList.map((t, idx) => (
               <View key={t.id || idx} style={styles.teacherCardMulti}>
                 <Image 
-                  source={t.avatar_url ? { uri: t.avatar_url } : (t.avatar ? { uri: t.avatar } : require('./assets/teacher.png'))} 
+                  source={t.avatar_url ? { uri: t.avatar_url, cache: 'force-cache' } : (t.avatar ? { uri: t.avatar, cache: 'force-cache' } : require('./assets/teacher.png'))} 
                   style={styles.teacherAvatar} 
+                  fadeDuration={0}
                 />
                 <View style={styles.teacherInfo}>
                   <Text style={styles.teacherName}>{t.name}</Text>

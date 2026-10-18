@@ -1,61 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Platform, RefreshControl, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import CourseModulesScreen from './CourseModulesScreen';
 
-export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFilter = 'Barcha kurslar', onSubScreenToggle }) {
-  const insets = useSafeAreaInsets();
-  const [activeFilter, setActiveFilter] = useState(initialFilter);
-  const [selectedCourseModule, setSelectedCourseModule] = useState(null);
-  const [courses, setCourses] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  const filters = ['Barcha kurslar', 'Mening kurslarim'];
-
-  const fetchCourses = async () => {
-    try {
-      const res = await fetch('http://192.168.0.107:8000/api/courses/');
-      const data = await res.json();
-      if (data.success && Array.isArray(data.courses)) {
-        setCourses(data.courses);
-      }
-    } catch (err) {
-      console.log('Error fetching courses:', err);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+// Standalone memoized CourseItem to prevent re-mounting and flickering on iOS
+const CourseItem = React.memo(({ course, iconUri, title, subtitle, onViewCourse }) => {
+  const imageSource = useMemo(() => {
+    if (iconUri) {
+      return { uri: iconUri, cache: 'force-cache' };
     }
-  };
+    return require('./assets/uk.png');
+  }, [iconUri]);
 
-  useEffect(() => {
-    fetchCourses();
-  }, []);
-
-  const onRefresh = () => {
-    setIsRefreshing(true);
-    fetchCourses();
-  };
-
-  useEffect(() => {
-    if (onSubScreenToggle) {
-      onSubScreenToggle(!!selectedCourseModule);
-    }
-  }, [selectedCourseModule]);
-
-  if (selectedCourseModule) {
-    return (
-      <CourseModulesScreen 
-        courseTitle={selectedCourseModule.title} 
-        onBack={() => setSelectedCourseModule(null)} 
-      />
-    );
-  }
-
-  const CourseItem = ({ course, icon, title, subtitle }) => (
+  return (
     <View style={styles.courseItem}>
-      <Image source={icon} style={styles.courseIcon} resizeMode="contain" />
+      <Image 
+        source={imageSource} 
+        style={styles.courseIcon} 
+        resizeMode="contain"
+        fadeDuration={0}
+      />
       <View style={styles.courseInfo}>
         <Text style={styles.courseTitle}>{title}</Text>
         <Text style={styles.courseSubtitle}>{subtitle}</Text>
@@ -69,45 +34,123 @@ export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFi
       </TouchableOpacity>
     </View>
   );
+});
 
-  const MyCourseItem = ({ icon, title, level, progress }) => (
-    <TouchableOpacity 
-      style={styles.myCourseCard} 
-      activeOpacity={0.8}
-      onPress={() => setSelectedCourseModule({ title })}
-    >
-      <Image source={icon} style={styles.myCourseIcon} resizeMode="contain" />
+// Standalone memoized MyCourseItem
+const MyCourseItem = React.memo(({ icon, title, level, progress, onSelect }) => (
+  <TouchableOpacity 
+    style={styles.myCourseCard} 
+    activeOpacity={0.8}
+    onPress={onSelect}
+  >
+    <Image source={icon} style={styles.myCourseIcon} resizeMode="contain" fadeDuration={0} />
+    
+    <View style={styles.myCourseInfo}>
+      <Text style={styles.myCourseTitle}>{title}</Text>
+      <Text style={styles.myCourseLevel}>{level}</Text>
       
-      <View style={styles.myCourseInfo}>
-        <Text style={styles.myCourseTitle}>{title}</Text>
-        <Text style={styles.myCourseLevel}>{level}</Text>
-        
-        {/* Progress Bar Row */}
-        <View style={styles.myProgressRow}>
-          <View style={styles.myProgressBarBg}>
-            <View style={[styles.myProgressBarFill, { width: `${progress}%` }]} />
-          </View>
-          <Text style={styles.myProgressPercent}>{progress}%</Text>
+      {/* Progress Bar Row */}
+      <View style={styles.myProgressRow}>
+        <View style={styles.myProgressBarBg}>
+          <View style={[styles.myProgressBarFill, { width: `${progress}%` }]} />
         </View>
+        <Text style={styles.myProgressPercent}>{progress}%</Text>
       </View>
+    </View>
 
-      {/* Right Arrow Button (>) */}
-      <View style={styles.arrowBtnContainer}>
-        <Ionicons name="chevron-forward" size={20} color="#666" />
-      </View>
-    </TouchableOpacity>
-  );
+    {/* Right Arrow Button (>) */}
+    <View style={styles.arrowBtnContainer}>
+      <Ionicons name="chevron-forward" size={20} color="#666" />
+    </View>
+  </TouchableOpacity>
+));
 
-  // Group dynamic backend courses by category
-  const categoryMap = {};
-  courses.forEach(c => {
-    const catName = c.category_name || 'Boshqa kurslar';
-    if (!categoryMap[catName]) {
-      categoryMap[catName] = [];
+export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFilter = 'Barcha kurslar', onSubScreenToggle }) {
+  const insets = useSafeAreaInsets();
+  const [activeFilter, setActiveFilter] = useState(initialFilter);
+  const [selectedCourseModule, setSelectedCourseModule] = useState(null);
+  const [courses, setCourses] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  const filters = ['Barcha kurslar', 'Mening kurslarim'];
+
+  const fetchCourses = useCallback(async (silent = false) => {
+    try {
+      const res = await fetch('http://192.168.0.107:8000/api/courses/');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.courses)) {
+        setCourses(prev => {
+          // Compare content to avoid re-rendering if unchanged
+          if (JSON.stringify(prev) === JSON.stringify(data.courses)) {
+            return prev;
+          }
+          return data.courses;
+        });
+      }
+    } catch (err) {
+      if (!silent) console.log('Error fetching courses:', err);
+    } finally {
+      if (!silent) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
-    categoryMap[catName].push(c);
-  });
-  const categoryNames = Object.keys(categoryMap);
+  }, []);
+
+  useEffect(() => {
+    fetchCourses();
+
+    // Real-time polling every 2.5 seconds to sync with admin panel changes
+    const interval = setInterval(() => {
+      fetchCourses(true);
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [fetchCourses]);
+
+  const onRefresh = () => {
+    setIsRefreshing(true);
+    fetchCourses();
+  };
+
+  useEffect(() => {
+    if (onSubScreenToggle) {
+      onSubScreenToggle(!!selectedCourseModule);
+    }
+  }, [selectedCourseModule]);
+
+  const handleViewCourse = useCallback((c) => {
+    if (onViewCourse) onViewCourse(c);
+  }, [onViewCourse]);
+
+  const handleSelectModule = useCallback((title) => {
+    setSelectedCourseModule({ title });
+  }, []);
+
+  // Group dynamic backend courses by category (memoized for performance)
+  const categoryMap = useMemo(() => {
+    const map = {};
+    courses.forEach(c => {
+      const catName = c.category_name || 'Boshqa kurslar';
+      if (!map[catName]) {
+        map[catName] = [];
+      }
+      map[catName].push(c);
+    });
+    return map;
+  }, [courses]);
+
+  const categoryNames = useMemo(() => Object.keys(categoryMap), [categoryMap]);
+
+  if (selectedCourseModule) {
+    return (
+      <CourseModulesScreen 
+        courseTitle={selectedCourseModule.title} 
+        onBack={() => setSelectedCourseModule(null)} 
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -171,9 +214,10 @@ export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFi
                       <CourseItem 
                         key={c.id} 
                         course={c}
-                        icon={c.icon ? { uri: c.icon } : (c.icon_url ? { uri: c.icon_url } : require('./assets/uk.png'))} 
+                        iconUri={c.icon || c.icon_url} 
                         title={c.name || c.title} 
                         subtitle={c.hint} 
+                        onViewCourse={handleViewCourse}
                       />
                     ))}
                   </View>
@@ -194,18 +238,21 @@ export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFi
               title="HTML & CSS" 
               level="Boshlang'ich daraja" 
               progress={30}
+              onSelect={() => handleSelectModule("HTML & CSS")}
             />
             <MyCourseItem 
               icon={require('./assets/uk.png')} 
               title="English A1 – Beginner" 
               level="Boshlang'ich daraja" 
               progress={60}
+              onSelect={() => handleSelectModule("English A1 – Beginner")}
             />
             <MyCourseItem 
               icon={require('./assets/python.png')} 
               title="Python Basics" 
               level="Boshlang'ich daraja" 
               progress={45}
+              onSelect={() => handleSelectModule("Python Basics")}
             />
           </View>
         )}
