@@ -319,6 +319,8 @@ export default function CourseDetailScreen({ course, userData, onBack }) {
         >
           {isEnrolling ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={styles.enrollButtonText}>Kursga yozilish</Text>
           )}
         </TouchableOpacity>
       </View>
