@@ -11,7 +11,10 @@ import {
   Bell, 
   TrendingUp, 
   Plus, 
+  PlusCircle,
+  Sparkles,
   CheckCircle,
+  CheckCircle2,
   ExternalLink,
   Edit,
   Lock,
@@ -111,7 +114,17 @@ export default function Dashboard({ user, onLogout }) {
   };
   const [moduleForm, setModuleForm] = useState(initialModuleForm);
 
-  // Video Lessons Modal State
+  // Dedicated Page & Sub-view State
+  const [internalSubView, setInternalSubView] = useState(null); // null, 'create-video', 'edit-video', 'create-test', 'edit-test'
+  const [internalSearchQuery, setInternalSearchQuery] = useState('');
+
+  const getYouTubeId = (url) => {
+    if (!url) return null;
+    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+    return match ? match[1] : null;
+  };
+
+  // Video Lessons State
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState(null);
   const [isVideoSubmitting, setIsVideoSubmitting] = useState(false);
@@ -120,7 +133,7 @@ export default function Dashboard({ user, onLogout }) {
     { title: '', duration: '15 daqiqa', youtube_url: '', description: '', order_index: 1 }
   ]);
 
-  // Test Modal State
+  // Test State
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [editingTest, setEditingTest] = useState(null);
   const [isTestSubmitting, setIsTestSubmitting] = useState(false);
@@ -497,6 +510,7 @@ export default function Dashboard({ user, onLogout }) {
 
   const handleOpenCourseInternal = (course) => {
     setSelectedInternalCourse(course);
+    setInternalSubView(null);
     setInternalTab('modules');
     setInternalModuleFilter('all');
     setInternalLessonTypeFilter('all');
@@ -588,7 +602,7 @@ export default function Dashboard({ user, onLogout }) {
     setVideoList([
       { title: '', duration: '15 daqiqa', youtube_url: '', description: '', order_index: courseLessons.length + 1 }
     ]);
-    setIsVideoModalOpen(true);
+    setInternalSubView('create-video');
   };
 
   const handleOpenEditVideo = (lesson) => {
@@ -603,7 +617,7 @@ export default function Dashboard({ user, onLogout }) {
         order_index: lesson.order_index
       }
     ]);
-    setIsVideoModalOpen(true);
+    setInternalSubView('edit-video');
   };
 
   const handleAddVideoField = () => {
@@ -658,6 +672,7 @@ export default function Dashboard({ user, onLogout }) {
         });
         const data = await res.json();
         if (data.success) {
+          setInternalSubView(null);
           setIsVideoModalOpen(false);
           fetchInternalData(selectedInternalCourse.id);
           fetchCourses();
@@ -675,6 +690,7 @@ export default function Dashboard({ user, onLogout }) {
         });
         const data = await res.json();
         if (data.success) {
+          setInternalSubView(null);
           setIsVideoModalOpen(false);
           fetchInternalData(selectedInternalCourse.id);
           fetchCourses();
@@ -724,7 +740,7 @@ export default function Dashboard({ user, onLogout }) {
       tg_channel: '',
       order_index: courseTests.length + 1,
     });
-    setIsTestModalOpen(true);
+    setInternalSubView('create-test');
   };
 
   const handleOpenEditTest = (test) => {
@@ -746,7 +762,7 @@ export default function Dashboard({ user, onLogout }) {
       tg_channel: test.tg_channel || '',
       order_index: test.order_index || 1,
     });
-    setIsTestModalOpen(true);
+    setInternalSubView('edit-test');
   };
 
   const handleSubmitTest = async (e) => {
@@ -789,6 +805,7 @@ export default function Dashboard({ user, onLogout }) {
       });
       const data = await res.json();
       if (data.success) {
+        setInternalSubView(null);
         setIsTestModalOpen(false);
         fetchInternalData(selectedInternalCourse.id);
         fetchCourses();
@@ -1722,18 +1739,105 @@ export default function Dashboard({ user, onLogout }) {
             ) : coursesTab === 'internal' ? (
               <div>
                 {!selectedInternalCourse ? (
-                  <div style={{ background: '#FFFFFF', borderRadius: 20, border: '1px solid #E2E8F0', padding: 24, boxShadow: '0 4px 18px rgba(0,0,0,0.03)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+                  <div className="internal-table-container">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 14 }}>
                       <div>
-                        <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Kurslar Ichki Bo'limi</h2>
-                        <p style={{ color: '#64748B', fontSize: 13 }}>
-                          Mavjud kurslarning modullari, video darsliklari, testlari va sertifikatlarini boshqarish uchun kerakli kurs yonidagi <strong>"Ko'rish"</strong> tugmasini bosing.
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, background: '#F3E8FF', color: '#7C3AED', fontWeight: 800, fontSize: 12, marginBottom: 8 }}>
+                          <Sparkles size={14} /> KURSLAR ICHKI BOSHQARUVI
+                        </div>
+                        <h2 style={{ fontSize: 24, fontWeight: 800, color: '#0F172A', marginBottom: 6 }}>
+                          Kurslar Ichki Bo'limi
+                        </h2>
+                        <p style={{ color: '#64748B', fontSize: 13, maxWidth: 650, margin: 0, lineHeight: 1.5 }}>
+                          Mavjud kurslarning modullari, video darsliklari, testlari va sertifikatlarini boshqarish markazi. Kerakli kurs tarkibini boshqarish uchun <strong>"Ko'rish"</strong> tugmasini bosing.
                         </p>
                       </div>
-                      <div style={{ display: 'flex', gap: 10 }}>
-                        <span className="internal-stat-badge purple">
-                          <Layers size={14} /> Jami: {coursesList.length} ta kurs
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <button 
+                          className="btn-outline" 
+                          style={{ fontSize: 13, padding: '8px 16px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                          onClick={fetchCourses}
+                          title="Qayta yuklash"
+                        >
+                          Yangilash
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick Stats Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 22 }}>
+                      <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 16, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <div style={{ width: 44, height: 44, borderRadius: 12, background: '#EDE9FE', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <BookOpen size={22} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Jami Kurslar</div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: '#0F172A' }}>{coursesList.length} ta</div>
+                        </div>
+                      </div>
+
+                      <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 16, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <div style={{ width: 44, height: 44, borderRadius: 12, background: '#F3E8FF', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Layers size={22} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Jami Modullar</div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: '#0F172A' }}>
+                            {coursesList.reduce((acc, c) => acc + (c.modules_count || 0), 0)} ta
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 16, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <div style={{ width: 44, height: 44, borderRadius: 12, background: '#EFF6FF', color: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Video size={22} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Video Darsliklar</div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: '#0F172A' }}>
+                            {coursesList.reduce((acc, c) => acc + (c.lessons_count || 0), 0)} ta
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 16, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <div style={{ width: 44, height: 44, borderRadius: 12, background: '#ECFDF5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <FileQuestion size={22} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Jami Testlar</div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: '#0F172A' }}>
+                            {coursesList.reduce((acc, c) => acc + (c.tests_count || 0), 0)} ta
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Table Top Bar with Search */}
+                    <div className="internal-table-top-bar">
+                      <div>
+                        <h3 style={{ fontSize: 17, fontWeight: 800, color: '#0F172A', marginBottom: 2 }}>Kurslar Ro'yxati</h3>
+                        <span style={{ fontSize: 12, color: '#64748B' }}>
+                          Quyidagi jadvaldan kerakli kursni tanlab, uning ichki tuzilmasiga kiring.
                         </span>
+                      </div>
+                      <div className="internal-search-input-box">
+                        <Search size={16} color="#94A3B8" />
+                        <input 
+                          type="text" 
+                          placeholder="Kurs nomi yoki kategoriya bo'yicha qidirish..." 
+                          value={internalSearchQuery}
+                          onChange={(e) => setInternalSearchQuery(e.target.value)}
+                        />
+                        {internalSearchQuery && (
+                          <button 
+                            type="button" 
+                            onClick={() => setInternalSearchQuery('')}
+                            style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94A3B8', fontSize: 16, padding: '0 4px', lineHeight: 1 }}
+                          >
+                            ×
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -1741,96 +1845,846 @@ export default function Dashboard({ user, onLogout }) {
                       <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94A3B8' }}>
                         <BookOpen size={48} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
                         <p style={{ fontSize: 15, fontWeight: 600 }}>Hozircha sotuv bo'limida kurslar mavjud emas.</p>
-                        <p style={{ fontSize: 13 }}>Avval "Kurs sotuv bo'limi"da kurs yarating.</p>
+                        <p style={{ fontSize: 13 }}>Avval "Kurslar" bo'limida yangi kurs yarating.</p>
                       </div>
-                    ) : (
-                      <div className="table-responsive">
-                        <table className="users-table">
-                          <thead>
-                            <tr>
-                              <th style={{ width: 50 }}>#</th>
-                              <th>Kurs Nomi</th>
-                              <th>Kategoriya</th>
-                              <th>Modullar</th>
-                              <th>Darsliklar</th>
-                              <th>Testlar</th>
-                              <th>Sertifikat</th>
-                              <th style={{ textAlign: 'right' }}>Amal</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {coursesList.map((c, index) => (
-                              <tr key={c.id}>
-                                <td style={{ fontWeight: 700, color: '#7C3AED' }}>#{index + 1}</td>
-                                <td>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                    {c.icon_url ? (
-                                      <img 
-                                        src={c.icon_url} 
-                                        alt={c.title} 
-                                        style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'contain', background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 4 }} 
-                                      />
-                                    ) : (
-                                      <div style={{ width: 44, height: 44, borderRadius: 12, background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7C3AED' }}>
-                                        <GraduationCap size={22} />
-                                      </div>
-                                    )}
-                                    <div>
-                                      <div style={{ fontWeight: 800, color: '#0F172A', fontSize: 14 }}>{c.title}</div>
-                                      <div style={{ fontSize: 12, color: '#64748B' }}>{c.hint || "Daraja ko'rsatilmagan"}</div>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td>
-                                  <span style={{ padding: '4px 10px', borderRadius: 8, background: '#F1F5F9', color: '#475569', fontWeight: 600, fontSize: 12 }}>
-                                    {c.category_name}
-                                  </span>
-                                </td>
-                                <td>
-                                  <span className="internal-stat-badge purple">
-                                    <Layers size={13} /> {c.modules_count || 0} ta modul
-                                  </span>
-                                </td>
-                                <td>
-                                  <span className="internal-stat-badge blue">
-                                    <Video size={13} /> {c.lessons_count || 0} ta video
-                                  </span>
-                                </td>
-                                <td>
-                                  <span className="internal-stat-badge green">
-                                    <FileQuestion size={13} /> {c.tests_count || 0} ta test
-                                  </span>
-                                </td>
-                                <td>
-                                  {c.has_certificate_file ? (
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 8, background: '#ECFDF5', color: '#059669', fontWeight: 700, fontSize: 11 }}>
-                                      <Check size={12} /> Yuklangan (PDF)
-                                    </span>
-                                  ) : (
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 8, background: '#F1F5F9', color: '#94A3B8', fontWeight: 600, fontSize: 11 }}>
-                                      Yuklanmagan
-                                    </span>
-                                  )}
-                                </td>
-                                <td style={{ textAlign: 'right' }}>
-                                  <button 
-                                    className="btn-view-course"
-                                    onClick={() => handleOpenCourseInternal(c)}
-                                    title="Kurs tarkibiga kirish"
-                                  >
-                                    <Eye size={15} /> Ko'rish
-                                  </button>
-                                </td>
+                    ) : (() => {
+                      const filteredCourses = coursesList.filter(c => {
+                        if (!internalSearchQuery.trim()) return true;
+                        const q = internalSearchQuery.toLowerCase();
+                        return (
+                          (c.title && c.title.toLowerCase().includes(q)) ||
+                          (c.category_name && c.category_name.toLowerCase().includes(q)) ||
+                          (c.hint && c.hint.toLowerCase().includes(q))
+                        );
+                      });
+
+                      if (filteredCourses.length === 0) {
+                        return (
+                          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94A3B8' }}>
+                            <Search size={36} style={{ margin: '0 auto 10px', opacity: 0.4 }} />
+                            <p style={{ fontSize: 14, fontWeight: 600 }}>"{internalSearchQuery}" bo'yicha kurs topilmadi.</p>
+                            <button 
+                              className="btn-outline" 
+                              style={{ marginTop: 8, fontSize: 12, padding: '6px 14px' }}
+                              onClick={() => setInternalSearchQuery('')}
+                            >
+                              Filtrni tozalash
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="table-responsive">
+                          <table className="users-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
+                            <thead>
+                              <tr style={{ background: '#F8FAFC' }}>
+                                <th style={{ width: 60, padding: '14px 16px', borderRadius: '12px 0 0 12px' }}>#</th>
+                                <th style={{ padding: '14px 16px' }}>Kurs Nomi va Darajasi</th>
+                                <th style={{ padding: '14px 16px' }}>Kategoriya</th>
+                                <th style={{ padding: '14px 16px' }}>Modullar</th>
+                                <th style={{ padding: '14px 16px' }}>Darsliklar</th>
+                                <th style={{ padding: '14px 16px' }}>Testlar</th>
+                                <th style={{ padding: '14px 16px' }}>Sertifikat</th>
+                                <th style={{ textAlign: 'right', padding: '14px 16px', borderRadius: '0 12px 12px 0' }}>Amallar</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                            </thead>
+                            <tbody>
+                              {filteredCourses.map((c, index) => (
+                                <tr key={c.id} className="table-modern-row" style={{ background: '#FFFFFF', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                                  <td style={{ padding: '16px', fontWeight: 800, color: '#7C3AED', borderRadius: '12px 0 0 12px' }}>
+                                    #{index + 1}
+                                  </td>
+                                  <td style={{ padding: '16px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                                      <div className="course-table-icon-wrap">
+                                        {c.icon_url ? (
+                                          <img src={c.icon_url} alt={c.title} />
+                                        ) : (
+                                          <GraduationCap size={24} color="#7C3AED" />
+                                        )}
+                                      </div>
+                                      <div>
+                                        <div style={{ fontWeight: 800, color: '#0F172A', fontSize: 15, marginBottom: 3 }}>
+                                          {c.title}
+                                        </div>
+                                        <div style={{ fontSize: 12, color: '#64748B', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                          <span>{c.hint || "Barcha darajalar uchun"}</span>
+                                          {c.price ? <span>• <strong style={{ color: '#059669' }}>{Number(c.price).toLocaleString()} so'm</strong></span> : null}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '16px' }}>
+                                    <span style={{ padding: '6px 12px', borderRadius: 10, background: '#F1F5F9', color: '#334155', fontWeight: 700, fontSize: 12, border: '1px solid #E2E8F0', display: 'inline-block' }}>
+                                      {c.category_name}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '16px' }}>
+                                    <span className="badge-count-pill modules">
+                                      <Layers size={14} /> {c.modules_count || 0} ta modul
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '16px' }}>
+                                    <span className="badge-count-pill lessons">
+                                      <Video size={14} /> {c.lessons_count || 0} ta video
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '16px' }}>
+                                    <span className="badge-count-pill tests">
+                                      <FileQuestion size={14} /> {c.tests_count || 0} ta test
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '16px' }}>
+                                    {c.has_certificate_file ? (
+                                      <span className="badge-count-pill cert-active">
+                                        <Check size={13} /> Yuklangan (PDF)
+                                      </span>
+                                    ) : (
+                                      <span className="badge-count-pill cert-none">
+                                        Yuklanmagan
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td style={{ textAlign: 'right', padding: '16px', borderRadius: '0 12px 12px 0' }}>
+                                    <button 
+                                      className="btn-view-course-modern"
+                                      onClick={() => handleOpenCourseInternal(c)}
+                                      title="Kurs tarkibini ko'rish"
+                                    >
+                                      <Eye size={15} /> Ko'rish
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <div>
-                    {/* Internal Course Top Header */}
+                    {(internalSubView === 'create-video' || internalSubView === 'edit-video') ? (
+                      /* DEDICATED FULL-PAGE VIDEO LESSON CREATOR */
+                      <div className="dedicated-page-container">
+                        {/* Top Nav */}
+                        <div className="dedicated-page-top-nav">
+                          <button 
+                            type="button" 
+                            className="btn-back-link" 
+                            onClick={() => setInternalSubView(null)}
+                          >
+                            <ArrowLeft size={16} /> Kurs ichki bo'limiga qaytish
+                          </button>
+                          <div style={{ fontSize: 13, color: '#64748B', fontWeight: 600 }}>
+                            Kurs: <strong style={{ color: '#0F172A' }}>{selectedInternalCourse.title}</strong>
+                          </div>
+                        </div>
+
+                        {/* Header Card */}
+                        <div className="dedicated-page-header-card">
+                          <div className="dedicated-card-icon-badge purple">
+                            <Video size={28} />
+                          </div>
+                          <div>
+                            <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>
+                              {editingLesson ? "Video Darslikni Tahrirlash" : "Yangi Video Darslik(lar) Qo'shish"}
+                            </h2>
+                            <p style={{ color: '#64748B', fontSize: 13, lineHeight: 1.5, margin: 0 }}>
+                              {editingLesson 
+                                ? "Tanlangan video darslik ma'lumotlarini o'zgartiring va saqlang." 
+                                : "Ushbu sahifada kerakli modulni tanlab, unga bir yoki bir nechta video darsliklarni ketma-ketlikda kiriting va YouTube havolasini biriktiring."}
+                            </p>
+                          </div>
+                        </div>
+
+                        <form onSubmit={handleSubmitVideos}>
+                          {/* Card 1: Modul Tanlash */}
+                          <div className="dedicated-section-card">
+                            <div className="dedicated-section-title">
+                              <Layers size={18} color="#7C3AED" />
+                              <span>1. Qaysi Modulga Qo'shiladi?</span>
+                            </div>
+                            <div className="form-group" style={{ maxWidth: 480, marginBottom: 0 }}>
+                              <label style={{ fontWeight: 700, fontSize: 13, color: '#334155', display: 'block', marginBottom: 6 }}>Modulni tanlang *</label>
+                              <select 
+                                className="modern-select"
+                                style={{ width: '100%', height: 44, fontSize: 14, borderRadius: 12, padding: '0 14px' }}
+                                value={videoModuleId}
+                                onChange={(e) => setVideoModuleId(e.target.value)}
+                                required
+                              >
+                                <option value="">-- Modulni tanlang --</option>
+                                {courseModules.map((m) => (
+                                  <option key={m.id} value={m.id}>
+                                    #{m.order_index} {m.title}
+                                  </option>
+                                ))}
+                              </select>
+                              <span style={{ fontSize: 12, color: '#64748B', marginTop: 6, display: 'block' }}>
+                                Yangi modul kerak bo'lsa, "Modullar" bo'limida yangi modul yarating.
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Card 2: Video Darsliklar */}
+                          <div className="dedicated-section-card">
+                            <div className="dedicated-section-title">
+                              <Video size={18} color="#2563EB" />
+                              <span>2. Video Darslik(lar) Tafsilotlari</span>
+                              <span style={{ marginLeft: 'auto', fontSize: 12, color: '#64748B', fontWeight: 600 }}>
+                                Jami: <strong>{videoList.length} ta video</strong>
+                              </span>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                              {videoList.map((vid, idx) => {
+                                const ytId = getYouTubeId(vid.youtube_url);
+                                return (
+                                  <div key={idx} className="page-video-card">
+                                    <div className="page-video-card-top">
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <span style={{ 
+                                          background: '#7C3AED', 
+                                          color: '#FFFFFF', 
+                                          padding: '4px 12px', 
+                                          borderRadius: 8, 
+                                          fontSize: 12, 
+                                          fontWeight: 800 
+                                        }}>
+                                          #{vid.order_index || (idx + 1)}
+                                        </span>
+                                        <span style={{ fontSize: 14, fontWeight: 800, color: '#1E293B' }}>
+                                          {vid.title ? vid.title : `Video Darslik #${idx + 1}`}
+                                        </span>
+                                      </div>
+
+                                      {!editingLesson && videoList.length > 1 && (
+                                        <button 
+                                          type="button" 
+                                          className="btn-delete-ad"
+                                          style={{ padding: '6px 12px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                                          onClick={() => handleRemoveVideoField(idx)}
+                                        >
+                                          <Trash2 size={14} /> Videoni olib tashlash
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+                                      <div className="form-group" style={{ marginBottom: 0 }}>
+                                        <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Video Nomi *</label>
+                                        <input 
+                                          type="text" 
+                                          className="modern-input"
+                                          placeholder="Masalan: 1-Dars. Ingliz tili grammatika asoslari"
+                                          value={vid.title}
+                                          onChange={(e) => handleUpdateVideoField(idx, 'title', e.target.value)}
+                                          required
+                                        />
+                                      </div>
+
+                                      <div className="form-group" style={{ marginBottom: 0 }}>
+                                        <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Davomiyligi (Video soati/daqiqa)</label>
+                                        <input 
+                                          type="text" 
+                                          className="modern-input"
+                                          placeholder="Masalan: 18 daqiqa"
+                                          value={vid.duration}
+                                          onChange={(e) => handleUpdateVideoField(idx, 'duration', e.target.value)}
+                                        />
+                                      </div>
+
+                                      <div className="form-group" style={{ marginBottom: 0 }}>
+                                        <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Navbat Raqami (Tartibi)</label>
+                                        <input 
+                                          type="number" 
+                                          className="modern-input"
+                                          value={vid.order_index}
+                                          onChange={(e) => handleUpdateVideoField(idx, 'order_index', e.target.value)}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="form-group" style={{ marginTop: 16, marginBottom: 0 }}>
+                                      <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>YouTube Video Havolasi (Link)</label>
+                                      <input 
+                                        type="url" 
+                                        className="modern-input"
+                                        placeholder="Masalan: https://www.youtube.com/watch?v=dQw4w9WgXcQ yoki https://youtu.be/..."
+                                        value={vid.youtube_url}
+                                        onChange={(e) => handleUpdateVideoField(idx, 'youtube_url', e.target.value)}
+                                      />
+
+                                      {ytId && (
+                                        <div className="youtube-preview-container">
+                                          <img 
+                                            src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} 
+                                            alt="YouTube Thumbnail" 
+                                            className="youtube-thumbnail-img"
+                                          />
+                                          <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                              <span style={{ color: '#DC2626' }}>▶ YouTube Video aniqlandi</span>
+                                              <span style={{ fontSize: 11, background: '#F1F5F9', padding: '2px 8px', borderRadius: 6, color: '#475569' }}>
+                                                ID: {ytId}
+                                              </span>
+                                            </div>
+                                            <a 
+                                              href={vid.youtube_url} 
+                                              target="_blank" 
+                                              rel="noreferrer"
+                                              style={{ fontSize: 12, color: '#2563EB', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 4, fontWeight: 600 }}
+                                            >
+                                              <ExternalLink size={12} /> Videoni YouTube'da ko'rish
+                                            </a>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div className="form-group" style={{ marginTop: 16, marginBottom: 0 }}>
+                                      <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Darslik Tavsifi / Izoh (Ixtiyoriy)</label>
+                                      <textarea 
+                                        className="modern-textarea"
+                                        rows={2}
+                                        placeholder="Ushbu darslik haqida qisqacha ma'lumot yoki talabalarga ko'rsatmalar..."
+                                        value={vid.description}
+                                        onChange={(e) => handleUpdateVideoField(idx, 'description', e.target.value)}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {!editingLesson && (
+                              <button 
+                                type="button" 
+                                className="btn-add-more-video-page"
+                                onClick={handleAddVideoField}
+                                style={{ marginTop: 16 }}
+                              >
+                                <PlusCircle size={20} /> + Yana Boshqa Video Qo'shish
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Action Footer */}
+                          <div className="dedicated-action-footer">
+                            <button 
+                              type="button" 
+                              className="btn-cancel"
+                              style={{ padding: '12px 24px', fontSize: 14 }}
+                              onClick={() => setInternalSubView(null)}
+                            >
+                              Bekor qilish
+                            </button>
+                            <button 
+                              type="submit" 
+                              className="btn-action-purple"
+                              style={{ padding: '12px 28px', fontSize: 14 }}
+                              disabled={isVideoSubmitting}
+                            >
+                              {isVideoSubmitting ? "Saqlanmoqda..." : (editingLesson ? "O'zgarishlarni Saqlash" : `${videoList.length} ta Videoni Saqlash`)}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    ) : (internalSubView === 'create-test' || internalSubView === 'edit-test') ? (
+                      <div className="dedicated-page-container">
+                        {/* Top Nav */}
+                        <div className="dedicated-page-top-nav">
+                          <button 
+                            type="button" 
+                            className="btn-back-link" 
+                            onClick={() => setInternalSubView(null)}
+                          >
+                            <ArrowLeft size={16} /> Kurs ichki bo'limiga qaytish
+                          </button>
+                          <div style={{ fontSize: 13, color: '#64748B', fontWeight: 600 }}>
+                            Kurs: <strong style={{ color: '#0F172A' }}>{selectedInternalCourse.title}</strong>
+                          </div>
+                        </div>
+
+                        {/* Header Card */}
+                        <div className="dedicated-page-header-card">
+                          <div className="dedicated-card-icon-badge green">
+                            <FileQuestion size={28} />
+                          </div>
+                          <div>
+                            <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>
+                              {editingTest ? "Testni Tahrirlash" : "Yangi Test Yaratish"}
+                            </h2>
+                            <p style={{ color: '#64748B', fontSize: 13, lineHeight: 1.5, margin: 0 }}>
+                              Modul uchun 5 xil formatdagi (Eshitish, O'qish, Yozish, ABCD va Gapirish) testlarni yaratish va sozlash markazi.
+                            </p>
+                          </div>
+                        </div>
+
+                        <form onSubmit={handleSubmitTest}>
+                          {/* Section 1: Modul va Tartib */}
+                          <div className="dedicated-section-card">
+                            <div className="dedicated-section-title">
+                              <Layers size={18} color="#7C3AED" />
+                              <span>1. Asosiy Ma'lumotlar</span>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+                              <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Modulni tanlang *</label>
+                                <select 
+                                  className="modern-select"
+                                  style={{ width: '100%', height: 44, fontSize: 14, borderRadius: 12, padding: '0 14px' }}
+                                  value={testForm.module_id}
+                                  onChange={(e) => setTestForm({ ...testForm, module_id: e.target.value })}
+                                  required
+                                >
+                                  <option value="">-- Modulni tanlang --</option>
+                                  {courseModules.map((m) => (
+                                    <option key={m.id} value={m.id}>
+                                      #{m.order_index} {m.title}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Test Nomi / Sarlavhasi *</label>
+                                <input 
+                                  type="text" 
+                                  className="modern-input"
+                                  placeholder="Masalan: Unit 1. Listening Comprehension Test"
+                                  value={testForm.title}
+                                  onChange={(e) => setTestForm({ ...testForm, title: e.target.value })}
+                                  required
+                                />
+                              </div>
+
+                              <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Navbat Raqami (Ketma-ketlik)</label>
+                                <input 
+                                  type="number" 
+                                  className="modern-input"
+                                  value={testForm.order_index}
+                                  onChange={(e) => setTestForm({ ...testForm, order_index: e.target.value })}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Section 2: Test Turini Tanlash (5 Zamonaviy Card) */}
+                          <div className="dedicated-section-card">
+                            <div className="dedicated-section-title">
+                              <Sparkles size={18} color="#D97706" />
+                              <span>2. Test Turini Tanlang (5 xil format)</span>
+                            </div>
+
+                            <div className="page-test-types-grid">
+                              {/* Card 1: Listening */}
+                              <div 
+                                className={`page-test-type-card ${testForm.test_type === 'listening' ? 'active' : ''}`}
+                                onClick={() => setTestForm({ ...testForm, test_type: 'listening' })}
+                              >
+                                {testForm.test_type === 'listening' && (
+                                  <div className="page-test-type-check-badge"><Check size={12} /></div>
+                                )}
+                                <div className="page-test-type-icon-wrap" style={{ background: '#FFF7ED', color: '#EA580C' }}>
+                                  <Headphones size={24} />
+                                </div>
+                                <div className="page-test-type-title">Eshitish</div>
+                                <div className="page-test-type-desc">Audio fayl, savol va A/B/C/D variantlar</div>
+                              </div>
+
+                              {/* Card 2: Reading */}
+                              <div 
+                                className={`page-test-type-card ${testForm.test_type === 'reading' ? 'active' : ''}`}
+                                onClick={() => setTestForm({ ...testForm, test_type: 'reading' })}
+                              >
+                                {testForm.test_type === 'reading' && (
+                                  <div className="page-test-type-check-badge"><Check size={12} /></div>
+                                )}
+                                <div className="page-test-type-icon-wrap" style={{ background: '#EFF6FF', color: '#2563EB' }}>
+                                  <BookOpen size={24} />
+                                </div>
+                                <div className="page-test-type-title">O'qish</div>
+                                <div className="page-test-type-desc">Katta matn, savol va A/B/C/D variantlar</div>
+                              </div>
+
+                              {/* Card 3: Writing */}
+                              <div 
+                                className={`page-test-type-card ${testForm.test_type === 'writing' ? 'active' : ''}`}
+                                onClick={() => setTestForm({ ...testForm, test_type: 'writing' })}
+                              >
+                                {testForm.test_type === 'writing' && (
+                                  <div className="page-test-type-check-badge"><Check size={12} /></div>
+                                )}
+                                <div className="page-test-type-icon-wrap" style={{ background: '#F5F3FF', color: '#7C3AED' }}>
+                                  <FileText size={24} />
+                                </div>
+                                <div className="page-test-type-title">Yozish</div>
+                                <div className="page-test-type-desc">Insho yoki yozma topshiriq mavzusi</div>
+                              </div>
+
+                              {/* Card 4: ABCD */}
+                              <div 
+                                className={`page-test-type-card ${testForm.test_type === 'abcd' ? 'active' : ''}`}
+                                onClick={() => setTestForm({ ...testForm, test_type: 'abcd' })}
+                              >
+                                {testForm.test_type === 'abcd' && (
+                                  <div className="page-test-type-check-badge"><Check size={12} /></div>
+                                )}
+                                <div className="page-test-type-icon-wrap" style={{ background: '#ECFDF5', color: '#059669' }}>
+                                  <CheckCircle2 size={24} />
+                                </div>
+                                <div className="page-test-type-title">ABCD Test</div>
+                                <div className="page-test-type-desc">Klassik savol va 4 ta javob varianti</div>
+                              </div>
+
+                              {/* Card 5: Speaking */}
+                              <div 
+                                className={`page-test-type-card ${testForm.test_type === 'speaking' ? 'active' : ''}`}
+                                onClick={() => setTestForm({ ...testForm, test_type: 'speaking' })}
+                              >
+                                {testForm.test_type === 'speaking' && (
+                                  <div className="page-test-type-check-badge"><Check size={12} /></div>
+                                )}
+                                <div className="page-test-type-icon-wrap" style={{ background: '#FFF1F2', color: '#E11D48' }}>
+                                  <Mic size={24} />
+                                </div>
+                                <div className="page-test-type-title">Gapirish</div>
+                                <div className="page-test-type-desc">Ovozli javob (Telegram bot orqali)</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Section 3: Dynamic Test Content */}
+                          <div className="dedicated-section-card">
+                            <div className="dedicated-section-title">
+                              <FileCheck size={18} color="#059669" />
+                              <span>3. Test Tarkibi va Savollari</span>
+                            </div>
+
+                            {/* 1. LISTENING */}
+                            {testForm.test_type === 'listening' && (
+                              <div>
+                                <div className="audio-uploader-card">
+                                  <UploadCloud size={36} color="#EA580C" style={{ margin: '0 auto 10px' }} />
+                                  <div style={{ fontSize: 15, fontWeight: 700, color: '#9A3412', marginBottom: 4 }}>
+                                    Audio Faylni Yuklang (.mp3, .wav, .m4a)
+                                  </div>
+                                  <p style={{ fontSize: 12, color: '#C2410C', marginBottom: 14 }}>
+                                    Talaba tinglashi kerak bo'lgan audio suhbat yoki topshiriq faylini tanlang.
+                                  </p>
+                                  <input 
+                                    type="file" 
+                                    accept="audio/*"
+                                    id="audio_upload_input"
+                                    style={{ display: 'none' }}
+                                    onChange={(e) => setTestForm({ ...testForm, audio_file: e.target.files[0] })}
+                                  />
+                                  <label 
+                                    htmlFor="audio_upload_input"
+                                    className="btn-outline" 
+                                    style={{ cursor: 'pointer', background: '#FFFFFF', padding: '8px 18px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+                                  >
+                                    <FileAudio size={16} /> Fayl tanlash
+                                  </label>
+
+                                  {testForm.audio_file && (
+                                    <div style={{ marginTop: 12, fontSize: 13, color: '#059669', fontWeight: 700 }}>
+                                      ✓ Tanlandi: {testForm.audio_file.name} ({(testForm.audio_file.size / (1024 * 1024)).toFixed(2)} MB)
+                                    </div>
+                                  )}
+                                  {!testForm.audio_file && editingTest?.audio_url && (
+                                    <div style={{ marginTop: 12, fontSize: 13, color: '#2563EB', fontWeight: 600 }}>
+                                      🎵 Joriy audio: <audio controls src={editingTest.audio_url} style={{ height: 32, verticalAlign: 'middle', marginLeft: 8 }} />
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="form-group">
+                                  <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Savol Matni *</label>
+                                  <input 
+                                    type="text" 
+                                    className="modern-input"
+                                    placeholder="Masalan: Suhbatdoshlar dam olish kunlari qayerga borishmoqchi?"
+                                    value={testForm.question}
+                                    onChange={(e) => setTestForm({ ...testForm, question: e.target.value })}
+                                    required
+                                  />
+                                </div>
+
+                                <div className="form-group">
+                                  <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>4 ta Variant va To'g'ri Javobni belgilash *</label>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {['A', 'B', 'C', 'D'].map((optKey, idx) => (
+                                      <div key={optKey} className={`page-option-card ${testForm.correct_answer === optKey ? 'is-correct' : ''}`}>
+                                        <input 
+                                          type="radio" 
+                                          id={`opt-radio-${optKey}`}
+                                          name="correct_answer_radio"
+                                          checked={testForm.correct_answer === optKey}
+                                          onChange={() => setTestForm({ ...testForm, correct_answer: optKey })}
+                                          style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#10B981' }}
+                                        />
+                                        <label htmlFor={`opt-radio-${optKey}`} style={{ fontWeight: 800, fontSize: 14, color: testForm.correct_answer === optKey ? '#059669' : '#475569', minWidth: 24, cursor: 'pointer' }}>
+                                          {optKey})
+                                        </label>
+                                        <input 
+                                          type="text" 
+                                          className="modern-input"
+                                          style={{ border: 'none', background: 'transparent', padding: '4px 8px', fontSize: 14 }}
+                                          placeholder={`${optKey} varianti matni...`}
+                                          value={testForm.options[idx] || ''}
+                                          onChange={(e) => {
+                                            const newOpts = [...testForm.options];
+                                            newOpts[idx] = e.target.value;
+                                            setTestForm({ ...testForm, options: newOpts });
+                                          }}
+                                          required
+                                        />
+                                        {testForm.correct_answer === optKey && (
+                                          <span style={{ fontSize: 12, fontWeight: 700, color: '#059669', background: '#ECFDF5', padding: '2px 8px', borderRadius: 6, whiteSpace: 'nowrap' }}>
+                                            To'g'ri javob ✓
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 2. READING */}
+                            {testForm.test_type === 'reading' && (
+                              <div>
+                                <div className="form-group">
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                    <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 0 }}>O'qish uchun matn (Reading Passage) *</label>
+                                    <span style={{ fontSize: 12, color: '#64748B' }}>
+                                      {testForm.reading_text ? `${testForm.reading_text.length} ta belgi | ${testForm.reading_text.split(/\s+/).filter(Boolean).length} ta so'z` : "0 ta so'z"}
+                                    </span>
+                                  </div>
+                                  <textarea 
+                                    className="modern-textarea"
+                                    rows={8}
+                                    placeholder="O'quvchi o'qib tushunishi kerak bo'lgan to'liq matn yoki maqolani shu yerga kiriting..."
+                                    value={testForm.reading_text}
+                                    onChange={(e) => setTestForm({ ...testForm, reading_text: e.target.value })}
+                                    style={{ lineHeight: 1.6, fontSize: 14 }}
+                                    required
+                                  />
+                                </div>
+
+                                <div className="form-group">
+                                  <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Savol Matni *</label>
+                                  <input 
+                                    type="text" 
+                                    className="modern-input"
+                                    placeholder="Masalan: Matnga ko'ra, asosiy qahramon nima sababdan sayohatga chiqdi?"
+                                    value={testForm.question}
+                                    onChange={(e) => setTestForm({ ...testForm, question: e.target.value })}
+                                    required
+                                  />
+                                </div>
+
+                                <div className="form-group">
+                                  <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>4 ta Variant va To'g'ri Javobni belgilash *</label>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {['A', 'B', 'C', 'D'].map((optKey, idx) => (
+                                      <div key={optKey} className={`page-option-card ${testForm.correct_answer === optKey ? 'is-correct' : ''}`}>
+                                        <input 
+                                          type="radio" 
+                                          id={`opt-read-${optKey}`}
+                                          name="correct_answer_radio"
+                                          checked={testForm.correct_answer === optKey}
+                                          onChange={() => setTestForm({ ...testForm, correct_answer: optKey })}
+                                          style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#10B981' }}
+                                        />
+                                        <label htmlFor={`opt-read-${optKey}`} style={{ fontWeight: 800, fontSize: 14, color: testForm.correct_answer === optKey ? '#059669' : '#475569', minWidth: 24, cursor: 'pointer' }}>
+                                          {optKey})
+                                        </label>
+                                        <input 
+                                          type="text" 
+                                          className="modern-input"
+                                          style={{ border: 'none', background: 'transparent', padding: '4px 8px', fontSize: 14 }}
+                                          placeholder={`${optKey} varianti matni...`}
+                                          value={testForm.options[idx] || ''}
+                                          onChange={(e) => {
+                                            const newOpts = [...testForm.options];
+                                            newOpts[idx] = e.target.value;
+                                            setTestForm({ ...testForm, options: newOpts });
+                                          }}
+                                          required
+                                        />
+                                        {testForm.correct_answer === optKey && (
+                                          <span style={{ fontSize: 12, fontWeight: 700, color: '#059669', background: '#ECFDF5', padding: '2px 8px', borderRadius: 6, whiteSpace: 'nowrap' }}>
+                                            To'g'ri javob ✓
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 3. WRITING */}
+                            {testForm.test_type === 'writing' && (
+                              <div>
+                                <div className="form-group">
+                                  <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Yozish Mavzusi / Insho Topshirig'i *</label>
+                                  <textarea 
+                                    className="modern-textarea"
+                                    rows={6}
+                                    placeholder="Masalan: 'Texnologiyaning yoshlar hayotiga ta'siri' mavzusida kamida 150 ta so'zdan iborat insho yozing..."
+                                    value={testForm.question}
+                                    onChange={(e) => setTestForm({ ...testForm, question: e.target.value })}
+                                    required
+                                  />
+                                </div>
+
+                                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 18, borderRadius: 14, color: '#475569', fontSize: 13, lineHeight: 1.5 }}>
+                                  <div style={{ fontWeight: 800, color: '#0F172A', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <HelpCircle size={16} color="#7C3AED" /> Yozish topshirig'i haqida:
+                                  </div>
+                                  O'quvchi ushbu topshiriqni mobil ilovada ko'radi va ilova ichidagi maxsus matn maydonida yozma insho yozib topshiradi.
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 4. ABCD */}
+                            {testForm.test_type === 'abcd' && (
+                              <div>
+                                <div className="form-group">
+                                  <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Savol Matni *</label>
+                                  <input 
+                                    type="text" 
+                                    className="modern-input"
+                                    placeholder="Masalan: Quyidagi so'zlardan qaysi biri fe'l turkumiga kiradi?"
+                                    value={testForm.question}
+                                    onChange={(e) => setTestForm({ ...testForm, question: e.target.value })}
+                                    required
+                                  />
+                                </div>
+
+                                <div className="form-group">
+                                  <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>4 ta Variant va To'g'ri Javobni belgilash *</label>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {['A', 'B', 'C', 'D'].map((optKey, idx) => (
+                                      <div key={optKey} className={`page-option-card ${testForm.correct_answer === optKey ? 'is-correct' : ''}`}>
+                                        <input 
+                                          type="radio" 
+                                          id={`opt-abcd-${optKey}`}
+                                          name="correct_answer_radio"
+                                          checked={testForm.correct_answer === optKey}
+                                          onChange={() => setTestForm({ ...testForm, correct_answer: optKey })}
+                                          style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#10B981' }}
+                                        />
+                                        <label htmlFor={`opt-abcd-${optKey}`} style={{ fontWeight: 800, fontSize: 14, color: testForm.correct_answer === optKey ? '#059669' : '#475569', minWidth: 24, cursor: 'pointer' }}>
+                                          {optKey})
+                                        </label>
+                                        <input 
+                                          type="text" 
+                                          className="modern-input"
+                                          style={{ border: 'none', background: 'transparent', padding: '4px 8px', fontSize: 14 }}
+                                          placeholder={`${optKey} varianti matni...`}
+                                          value={testForm.options[idx] || ''}
+                                          onChange={(e) => {
+                                            const newOpts = [...testForm.options];
+                                            newOpts[idx] = e.target.value;
+                                            setTestForm({ ...testForm, options: newOpts });
+                                          }}
+                                          required
+                                        />
+                                        {testForm.correct_answer === optKey && (
+                                          <span style={{ fontSize: 12, fontWeight: 700, color: '#059669', background: '#ECFDF5', padding: '2px 8px', borderRadius: 6, whiteSpace: 'nowrap' }}>
+                                            To'g'ri javob ✓
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 5. SPEAKING */}
+                            {testForm.test_type === 'speaking' && (
+                              <div>
+                                <div className="form-group">
+                                  <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Gapirish Mavzusi / Savol *</label>
+                                  <textarea 
+                                    className="modern-textarea"
+                                    rows={4}
+                                    placeholder="Masalan: O'zingiz yoqtirgan kasb haqida 2 daqiqa davomida ingliz tilida gapirib bering..."
+                                    value={testForm.question}
+                                    onChange={(e) => setTestForm({ ...testForm, question: e.target.value })}
+                                    required
+                                  />
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+                                  <div className="form-group">
+                                    <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Telegram Bot Havolasi *</label>
+                                    <input 
+                                      type="text" 
+                                      className="modern-input"
+                                      placeholder="Masalan: https://t.me/punyo_speaking_bot yoki @punyo_speaking_bot"
+                                      value={testForm.tg_bot_link}
+                                      onChange={(e) => setTestForm({ ...testForm, tg_bot_link: e.target.value })}
+                                      required
+                                    />
+                                  </div>
+
+                                  <div className="form-group">
+                                    <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Telegram Kanal / Guruh (Username yoki ID)</label>
+                                    <input 
+                                      type="text" 
+                                      className="modern-input"
+                                      placeholder="Masalan: @punyo_submissions yoki -100123456789"
+                                      value={testForm.tg_channel}
+                                      onChange={(e) => setTestForm({ ...testForm, tg_channel: e.target.value })}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', padding: 18, borderRadius: 14, color: '#9F1239', fontSize: 13, lineHeight: 1.5 }}>
+                                  <div style={{ fontWeight: 800, color: '#881337', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <Mic size={16} color="#E11D48" /> Gapirish testi ishlash tartibi:
+                                  </div>
+                                  O'quvchi ushbu topshiriqni o'qib, "Javobni yuborish" tugmasini bosganda ko'rsatilgan Telegram botga yo'naltiriladi va o'z ovozli xabarini yozib botga jo'natadi.
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Action Footer */}
+                          <div className="dedicated-action-footer">
+                            <button 
+                              type="button" 
+                              className="btn-cancel"
+                              style={{ padding: '12px 24px', fontSize: 14 }}
+                              onClick={() => setInternalSubView(null)}
+                            >
+                              Bekor qilish
+                            </button>
+                            <button 
+                              type="submit" 
+                              className="btn-action-green"
+                              style={{ padding: '12px 28px', fontSize: 14 }}
+                              disabled={isTestSubmitting}
+                            >
+                              {isTestSubmitting ? "Saqlanmoqda..." : (editingTest ? "O'zgarishlarni Saqlash" : "Testni Saqlash")}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    ) : (
+                      <div>
+                        {/* Internal Course Top Header */}
                     <div className="internal-course-header-box">
                       <div className="internal-course-header-top">
                         <button 
@@ -2346,7 +3200,9 @@ export default function Dashboard({ user, onLogout }) {
                   </div>
                 )}
               </div>
-            ) : (
+            )}
+          </div>
+        ) : (
               <div style={{ textAlign: 'center', padding: '80px 20px', background: '#FFFFFF', borderRadius: 20, border: '1px solid #E2E8F0' }}>
                 <div style={{ width: 64, height: 64, borderRadius: 32, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#2563EB' }}>
                   <Layers size={32} />
@@ -2904,543 +3760,9 @@ export default function Dashboard({ user, onLogout }) {
         </div>
       )}
 
-      {/* 2. Video Lessons Modal */}
-      {isVideoModalOpen && (
-        <div className="modal-overlay">
-          <div className="course-modal-container" style={{ maxWidth: 740 }}>
-            <div className="modal-header">
-              <div>
-                <h3>{editingLesson ? "Video Darslikni Tahrirlash" : "Yangi Video Darslik(lar) Qo'shish"}</h3>
-                <p style={{ fontSize: 13, color: '#64748B', marginTop: 2 }}>
-                  Videoni YouTube havolasini kiritib, ketma-ketlik tartibi bilan yarating.
-                </p>
-              </div>
-              <button className="modal-close" onClick={() => setIsVideoModalOpen(false)}>×</button>
-            </div>
 
-            <form onSubmit={handleSubmitVideos} className="modal-body">
-              <div className="form-group">
-                <label>Modulni Tanlang *</label>
-                <select 
-                  className="modern-select"
-                  value={videoModuleId}
-                  onChange={(e) => setVideoModuleId(e.target.value)}
-                  required
-                >
-                  <option value="">-- Modulni tanlang --</option>
-                  {courseModules.map(m => (
-                    <option key={m.id} value={m.id}>
-                      #{m.order_index} {m.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
 
-              {/* Dynamic Video Forms */}
-              <div style={{ marginTop: 12 }}>
-                {videoList.map((videoItem, idx) => (
-                  <div key={idx} className="multi-video-card">
-                    <div className="multi-video-header">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div className="lesson-type-icon-box video" style={{ width: 32, height: 32, borderRadius: 8 }}>
-                          <Video size={16} />
-                        </div>
-                        <strong style={{ fontSize: 14, color: '#1E293B' }}>
-                          Video #{idx + 1}
-                        </strong>
-                      </div>
-                      {videoList.length > 1 && !editingLesson && (
-                        <button 
-                          type="button" 
-                          className="btn-delete-ad" 
-                          style={{ padding: '4px 8px' }}
-                          onClick={() => handleRemoveVideoField(idx)}
-                          title="Videoni o'chirish"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
 
-                    <div className="form-grid-2">
-                      <div className="form-group">
-                        <label>Video Nomi *</label>
-                        <input 
-                          type="text" 
-                          className="modern-input"
-                          placeholder="Masalan: 1-Dars: Alphabet & Phonics"
-                          value={videoItem.title}
-                          onChange={(e) => handleUpdateVideoField(idx, 'title', e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Davomiyligi *</label>
-                        <input 
-                          type="text" 
-                          className="modern-input"
-                          placeholder="Masalan: 15:30 yoki 20 daqiqa"
-                          value={videoItem.duration}
-                          onChange={(e) => handleUpdateVideoField(idx, 'duration', e.target.value)}
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-grid-2">
-                      <div className="form-group">
-                        <label>YouTube Video Linki *</label>
-                        <input 
-                          type="text" 
-                          className="modern-input"
-                          placeholder="https://www.youtube.com/watch?v=..."
-                          value={videoItem.youtube_url}
-                          onChange={(e) => handleUpdateVideoField(idx, 'youtube_url', e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Video Navbati (Ketma-ketlik soni) *</label>
-                        <input 
-                          type="number" 
-                          min="1"
-                          className="modern-input"
-                          placeholder="1"
-                          value={videoItem.order_index}
-                          onChange={(e) => handleUpdateVideoField(idx, 'order_index', e.target.value)}
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label>Description (Dars haqida qisqacha izoh)</label>
-                      <textarea 
-                        className="modern-input"
-                        rows="2"
-                        placeholder="Ushbu darsda o'rganiladigan asosiy mavzular haqida qisqacha ma'lumot..."
-                        value={videoItem.description}
-                        onChange={(e) => handleUpdateVideoField(idx, 'description', e.target.value)}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* + Button to add more video in succession as requested by user */}
-              {!editingLesson && (
-                <button 
-                  type="button" 
-                  className="btn-add-more-video"
-                  onClick={handleAddVideoField}
-                >
-                  <Plus size={16} /> + Yana Boshqa Video Qo'shish
-                </button>
-              )}
-
-              <div className="modal-footer" style={{ marginTop: 14 }}>
-                <button type="button" className="btn-cancel" onClick={() => setIsVideoModalOpen(false)}>Bekor qilish</button>
-                <button type="submit" className="btn-action-purple" disabled={isVideoSubmitting}>
-                  {isVideoSubmitting ? "Saqlanmoqda..." : (editingLesson ? "O'zgarishlarni Saqlash" : `${videoList.length} ta Videoni Saqlash`)}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 3. Test Creation / Edit Modal */}
-      {isTestModalOpen && (
-        <div className="modal-overlay">
-          <div className="course-modal-container" style={{ maxWidth: 780 }}>
-            <div className="modal-header">
-              <div>
-                <h3>{editingTest ? "Testni Tahrirlash" : "Yangi Test Yaratish"}</h3>
-                <p style={{ fontSize: 13, color: '#64748B', marginTop: 2 }}>
-                  Test turini tanlang (Eshitish, O'qish, Yozish, ABCD, Gapirish) va tegishli maydonlarni to'ldiring.
-                </p>
-              </div>
-              <button className="modal-close" onClick={() => setIsTestModalOpen(false)}>×</button>
-            </div>
-
-            <form onSubmit={handleSubmitTest} className="modal-body">
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label>Modulni Tanlang *</label>
-                  <select 
-                    className="modern-select"
-                    value={testForm.module_id}
-                    onChange={(e) => setTestForm({ ...testForm, module_id: e.target.value })}
-                    required
-                  >
-                    <option value="">-- Modulni tanlang --</option>
-                    {courseModules.map(m => (
-                      <option key={m.id} value={m.id}>
-                        #{m.order_index} {m.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Test Nomi *</label>
-                  <input 
-                    type="text" 
-                    className="modern-input"
-                    placeholder="Masalan: Listening Section 1 yoki Grammar Test"
-                    value={testForm.title}
-                    onChange={(e) => setTestForm({ ...testForm, title: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* 5 Test Types Selector */}
-              <div className="form-group">
-                <label>Test Turi (5 xil turdan birini tanlang) *</label>
-                <div className="test-type-selector-grid">
-                  <button 
-                    type="button" 
-                    className={`test-type-btn ${testForm.test_type === 'listening' ? 'active' : ''}`}
-                    onClick={() => setTestForm({ ...testForm, test_type: 'listening' })}
-                  >
-                    <Headphones size={20} color="#EA580C" />
-                    <span>Eshitish</span>
-                  </button>
-
-                  <button 
-                    type="button" 
-                    className={`test-type-btn ${testForm.test_type === 'reading' ? 'active' : ''}`}
-                    onClick={() => setTestForm({ ...testForm, test_type: 'reading' })}
-                  >
-                    <BookOpen size={20} color="#059669" />
-                    <span>O'qish</span>
-                  </button>
-
-                  <button 
-                    type="button" 
-                    className={`test-type-btn ${testForm.test_type === 'writing' ? 'active' : ''}`}
-                    onClick={() => setTestForm({ ...testForm, test_type: 'writing' })}
-                  >
-                    <FileText size={20} color="#D97706" />
-                    <span>Yozish</span>
-                  </button>
-
-                  <button 
-                    type="button" 
-                    className={`test-type-btn ${testForm.test_type === 'abcd' ? 'active' : ''}`}
-                    onClick={() => setTestForm({ ...testForm, test_type: 'abcd' })}
-                  >
-                    <FileQuestion size={20} color="#7C3AED" />
-                    <span>ABCD</span>
-                  </button>
-
-                  <button 
-                    type="button" 
-                    className={`test-type-btn ${testForm.test_type === 'speaking' ? 'active' : ''}`}
-                    onClick={() => setTestForm({ ...testForm, test_type: 'speaking' })}
-                  >
-                    <Mic size={20} color="#E11D48" />
-                    <span>Gapirish</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* DYNAMIC FIELDS PER TEST TYPE */}
-              {/* 1. Eshitish (Listening) */}
-              {testForm.test_type === 'listening' && (
-                <div style={{ background: '#FFF7ED', border: '1px solid #FFEDD5', borderRadius: 16, padding: 20, marginBottom: 18 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                    <Headphones size={18} color="#EA580C" />
-                    <strong style={{ color: '#9A3412', fontSize: 14 }}>Eshitish (Listening) Test Maydonlari</strong>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Audio Fayl Yuklash (MP3, WAV, M4A) *</label>
-                    <input 
-                      type="file" 
-                      accept="audio/*" 
-                      className="modern-input"
-                      onChange={(e) => setTestForm({ ...testForm, audio_file: e.target.files[0] })}
-                      required={!editingTest}
-                    />
-                    {editingTest && editingTest.audio_url && !testForm.audio_file && (
-                      <span style={{ fontSize: 12, color: '#EA580C', marginTop: 4, display: 'block' }}>
-                        🎵 Mavjud audio saqlanadi (o'zgartirish uchun yangi fayl tanlang)
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="form-group">
-                    <label>Savol / Topshiriq Matni *</label>
-                    <input 
-                      type="text" 
-                      className="modern-input"
-                      placeholder="Masalan: What is the speaker's main purpose?"
-                      value={testForm.question}
-                      onChange={(e) => setTestForm({ ...testForm, question: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Variantlar va To'g'ri Javobni Belgilang *</label>
-                    <div className="options-editor-grid">
-                      {['A', 'B', 'C', 'D'].map((letter, idx) => (
-                        <div key={letter} className="option-edit-row">
-                          <div className="option-letter-badge">{letter}</div>
-                          <input 
-                            type="text" 
-                            className="modern-input"
-                            style={{ flex: 1 }}
-                            placeholder={`${letter} varianti matni`}
-                            value={testForm.options[idx] || ''}
-                            onChange={(e) => {
-                              const newOpts = [...testForm.options];
-                              newOpts[idx] = e.target.value;
-                              setTestForm({ ...testForm, options: newOpts });
-                            }}
-                            required
-                          />
-                          <label className="correct-option-radio">
-                            <input 
-                              type="radio" 
-                              name="listening_correct_answer" 
-                              checked={testForm.correct_answer === letter}
-                              onChange={() => setTestForm({ ...testForm, correct_answer: letter })}
-                            />
-                            To'g'ri javob
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 2. O'qish (Reading) */}
-              {testForm.test_type === 'reading' && (
-                <div style={{ background: '#ECFDF5', border: '1px solid #D1FAE5', borderRadius: 16, padding: 20, marginBottom: 18 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                    <BookOpen size={18} color="#059669" />
-                    <strong style={{ color: '#065F46', fontSize: 14 }}>O'qish (Reading) Test Maydonlari</strong>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Uzun Matn (Reading Passage) *</label>
-                    <textarea 
-                      className="modern-input"
-                      rows="6"
-                      placeholder="Talaba o'qishi kerak bo'lgan to'liq matn (passage)ni bu yerga kiriting..."
-                      value={testForm.reading_text}
-                      onChange={(e) => setTestForm({ ...testForm, reading_text: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Savol *</label>
-                    <input 
-                      type="text" 
-                      className="modern-input"
-                      placeholder="Masalan: According to the passage, why did the author..."
-                      value={testForm.question}
-                      onChange={(e) => setTestForm({ ...testForm, question: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Variantlar va To'g'ri Javob *</label>
-                    <div className="options-editor-grid">
-                      {['A', 'B', 'C', 'D'].map((letter, idx) => (
-                        <div key={letter} className="option-edit-row">
-                          <div className="option-letter-badge">{letter}</div>
-                          <input 
-                            type="text" 
-                            className="modern-input"
-                            style={{ flex: 1 }}
-                            placeholder={`${letter} varianti matni`}
-                            value={testForm.options[idx] || ''}
-                            onChange={(e) => {
-                              const newOpts = [...testForm.options];
-                              newOpts[idx] = e.target.value;
-                              setTestForm({ ...testForm, options: newOpts });
-                            }}
-                            required
-                          />
-                          <label className="correct-option-radio">
-                            <input 
-                              type="radio" 
-                              name="reading_correct_answer" 
-                              checked={testForm.correct_answer === letter}
-                              onChange={() => setTestForm({ ...testForm, correct_answer: letter })}
-                            />
-                            To'g'ri javob
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 3. Yozish (Writing) */}
-              {testForm.test_type === 'writing' && (
-                <div style={{ background: '#FFFBEB', border: '1px solid #FEF3C7', borderRadius: 16, padding: 20, marginBottom: 18 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                    <FileText size={18} color="#D97706" />
-                    <strong style={{ color: '#92400E', fontSize: 14 }}>Yozish (Writing) Test Maydonlari</strong>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Savol / Esse Mavzusi (Writing Prompt) *</label>
-                    <textarea 
-                      className="modern-input"
-                      rows="3"
-                      placeholder="Masalan: Some people think that universities should provide graduates with the knowledge and skills needed in the workplace. To what extent do you agree or disagree?"
-                      value={testForm.question}
-                      onChange={(e) => setTestForm({ ...testForm, question: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div style={{ background: '#FEF3C7', padding: '10px 14px', borderRadius: 10, fontSize: 13, color: '#92400E' }}>
-                    💡 <strong>Izoh:</strong> Yozish turida faqat savol/topshiriq kiritiladi. Mobil ilovada talaba ushbu topshiriqqa o'z matnini yozish uchun maxsus input ko'rinadi.
-                  </div>
-                </div>
-              )}
-
-              {/* 4. ABCD (Multiple Choice) */}
-              {testForm.test_type === 'abcd' && (
-                <div style={{ background: '#FAF5FF', border: '1px solid #EDE9FE', borderRadius: 16, padding: 20, marginBottom: 18 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                    <FileQuestion size={18} color="#7C3AED" />
-                    <strong style={{ color: '#6D28D9', fontSize: 14 }}>ABCD Belgilaydigan Test Maydonlari</strong>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Savol *</label>
-                    <input 
-                      type="text" 
-                      className="modern-input"
-                      placeholder="Masalan: She ____ to school every day."
-                      value={testForm.question}
-                      onChange={(e) => setTestForm({ ...testForm, question: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Variantlar va To'g'ri Javob *</label>
-                    <div className="options-editor-grid">
-                      {['A', 'B', 'C', 'D'].map((letter, idx) => (
-                        <div key={letter} className="option-edit-row">
-                          <div className="option-letter-badge">{letter}</div>
-                          <input 
-                            type="text" 
-                            className="modern-input"
-                            style={{ flex: 1 }}
-                            placeholder={`${letter} varianti (masalan: goes)`}
-                            value={testForm.options[idx] || ''}
-                            onChange={(e) => {
-                              const newOpts = [...testForm.options];
-                              newOpts[idx] = e.target.value;
-                              setTestForm({ ...testForm, options: newOpts });
-                            }}
-                            required
-                          />
-                          <label className="correct-option-radio">
-                            <input 
-                              type="radio" 
-                              name="abcd_correct_answer" 
-                              checked={testForm.correct_answer === letter}
-                              onChange={() => setTestForm({ ...testForm, correct_answer: letter })}
-                            />
-                            To'g'ri javob
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 5. Gapirish (Speaking) */}
-              {testForm.test_type === 'speaking' && (
-                <div style={{ background: '#FFF1F2', border: '1px solid #FFE4E6', borderRadius: 16, padding: 20, marginBottom: 18 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                    <Mic size={18} color="#E11D48" />
-                    <strong style={{ color: '#9F1239', fontSize: 14 }}>Gapirish (Speaking) Test Maydonlari</strong>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Savol / Gapirish Mavzusi *</label>
-                    <textarea 
-                      className="modern-input"
-                      rows="2"
-                      placeholder="Masalan: Describe a memorable journey you took. You should say where you went, who with, and why it was memorable."
-                      value={testForm.question}
-                      onChange={(e) => setTestForm({ ...testForm, question: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-grid-2">
-                    <div className="form-group">
-                      <label>Telegram Bot Linki *</label>
-                      <input 
-                        type="text" 
-                        className="modern-input"
-                        placeholder="https://t.me/punyo_speaking_bot"
-                        value={testForm.tg_bot_link}
-                        onChange={(e) => setTestForm({ ...testForm, tg_bot_link: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Telegram Kanal ID / Username *</label>
-                      <input 
-                        type="text" 
-                        className="modern-input"
-                        placeholder="@punyo_speaking yoki kanal ID"
-                        value={testForm.tg_channel}
-                        onChange={(e) => setTestForm({ ...testForm, tg_channel: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{ background: '#FFE4E6', padding: '10px 14px', borderRadius: 10, fontSize: 13, color: '#9F1239' }}>
-                    🎙️ <strong>Izoh:</strong> Talaba mobil ilovada ushbu savolni o'qiydi va "Topshiriqni topshirish" tugmasini bosganda ko'rsatilgan Telegram botga o'tib audio xabar orqali javob yuboradi.
-                  </div>
-                </div>
-              )}
-
-              {/* Order index */}
-              <div className="form-group">
-                <label>Tartib Raqami (Navbati) *</label>
-                <input 
-                  type="number" 
-                  min="1"
-                  className="modern-input"
-                  placeholder="1"
-                  value={testForm.order_index}
-                  onChange={(e) => setTestForm({ ...testForm, order_index: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="modal-footer" style={{ marginTop: 16 }}>
-                <button type="button" className="btn-cancel" onClick={() => setIsTestModalOpen(false)}>Bekor qilish</button>
-                <button type="submit" className="btn-action-purple" disabled={isTestSubmitting}>
-                  {isTestSubmitting ? "Saqlanmoqda..." : (editingTest ? "O'zgarishlarni Saqlash" : "Testni Saqlash")}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* 4. Certificate Upload Modal */}
       {isCertModalOpen && (
