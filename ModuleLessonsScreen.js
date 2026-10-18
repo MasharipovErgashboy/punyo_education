@@ -15,6 +15,7 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
   const [activeLesson, setActiveLesson] = useState(null);
   const [activeTest, setActiveTest] = useState(null);
   const [viewingAnalysisTest, setViewingAnalysisTest] = useState(null);
+  const [viewingAnalysisAttempt, setViewingAnalysisAttempt] = useState(null);
   const [selectedHistoryTest, setSelectedHistoryTest] = useState(null);
   const [testHistories, setTestHistories] = useState({});
   const [lessonsList, setLessonsList] = useState([]);
@@ -150,11 +151,23 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
     let isTestFailed = false;
     let updatedHistories = { ...testHistories };
 
-    // 1. If it's a test, save test history
+    // 1. If it's a test, save test history (append to list of all attempts)
     if (completedItem.type === 'test' && resultData) {
+      const prevData = testHistories[completedItem.id];
+      const prevList = Array.isArray(prevData)
+        ? prevData
+        : (prevData ? [prevData] : []);
+
+      const newAttempt = {
+        ...resultData,
+        attemptNumber: prevList.length + 1,
+        completedAt: resultData.completedAt || new Date().toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      };
+
+      const updatedList = [...prevList, newAttempt];
       updatedHistories = {
         ...testHistories,
-        [completedItem.id]: resultData,
+        [completedItem.id]: updatedList,
       };
       setTestHistories(updatedHistories);
       try {
@@ -198,7 +211,7 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
           email: currentUser?.email,
           phone: currentUser?.phone,
           item_id: completedItem.id,
-          test_history: (completedItem.type === 'test' && resultData) ? resultData : null,
+          test_history: (completedItem.type === 'test' && updatedHistories[completedItem.id]) ? updatedHistories[completedItem.id] : null,
           completed_ids: nextCompleted,
         })
       });
@@ -277,12 +290,25 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
     }
   };
 
-  if (viewingAnalysisTest) {
-    const history = testHistories[viewingAnalysisTest.id];
+  if (viewingAnalysisAttempt) {
     return (
       <TestAnalysisScreen 
-        questions={history?.questions || []}
-        userAnswers={history?.answers || {}}
+        questions={viewingAnalysisAttempt.questions || []}
+        userAnswers={viewingAnalysisAttempt.answers || {}}
+        testTitle={`${viewingAnalysisAttempt.testTitle || 'Test'} (${viewingAnalysisAttempt.attemptNumber ? viewingAnalysisAttempt.attemptNumber + '-urinish' : 'Tahlil'})`}
+        onBack={() => setViewingAnalysisAttempt(null)}
+      />
+    );
+  }
+
+  if (viewingAnalysisTest) {
+    const rawH = testHistories[viewingAnalysisTest.id];
+    const attempts = Array.isArray(rawH) ? rawH : (rawH ? [rawH] : []);
+    const lastAttempt = attempts.length > 0 ? attempts[attempts.length - 1] : rawH;
+    return (
+      <TestAnalysisScreen 
+        questions={lastAttempt?.questions || []}
+        userAnswers={lastAttempt?.answers || {}}
         testTitle={viewingAnalysisTest.title}
         onBack={() => setViewingAnalysisTest(null)}
       />
@@ -355,7 +381,10 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
             lessonsList.map((item, index) => {
               const isCompleted = completedIds.includes(item.id);
               const isLocked = index > 0 && !completedIds.includes(lessonsList[index - 1]?.id);
-              const history = testHistories[item.id];
+              const rawHistory = testHistories[item.id];
+              const attempts = Array.isArray(rawHistory) ? rawHistory : (rawHistory ? [rawHistory] : []);
+              const latestHistory = attempts.length > 0 ? attempts[attempts.length - 1] : null;
+              const hasHistory = attempts.length > 0;
 
               return (
                 <TouchableOpacity 
@@ -368,13 +397,13 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
                   <View style={[
                     styles.lessonIconBg, 
                     isCompleted && styles.lessonIconBgCompleted, 
-                    (!isCompleted && item.type === 'test' && history) && { backgroundColor: '#FEE2E2' },
+                    (!isCompleted && item.type === 'test' && hasHistory) && { backgroundColor: '#FEE2E2' },
                     isLocked && styles.lessonIconBgLocked
                   ]}>
                     <Ionicons 
                       name={item.type === 'video' ? "play" : "help-circle"} 
                       size={18} 
-                      color={isLocked ? "#94A3B8" : (isCompleted ? "#059669" : ((!isCompleted && item.type === 'test' && history) ? "#DC2626" : "#7c3aed"))} 
+                      color={isLocked ? "#94A3B8" : (isCompleted ? "#059669" : ((!isCompleted && item.type === 'test' && hasHistory) ? "#DC2626" : "#7c3aed"))} 
                     />
                   </View>
 
@@ -394,13 +423,13 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
                       {isCompleted ? (
                         <View style={styles.completedTag}>
                           <Text style={styles.completedTagText}>
-                            {item.type === 'test' && history ? `${history.percentage}% (Topshirilgan)` : "Yakunlangan"}
+                            {item.type === 'test' && latestHistory ? `${latestHistory.percentage}% (${attempts.length > 1 ? attempts.length + ' urinish' : 'Topshirilgan'})` : "Yakunlangan"}
                           </Text>
                         </View>
-                      ) : (item.type === 'test' && history) ? (
+                      ) : (item.type === 'test' && hasHistory) ? (
                         <View style={[styles.completedTag, { backgroundColor: '#FEE2E2' }]}>
                           <Text style={[styles.completedTagText, { color: '#DC2626' }]}>
-                            {history.percentage}% (O'tolmagan)
+                            {latestHistory?.percentage}% ({attempts.length}-urinish, O'tolmagan)
                           </Text>
                         </View>
                       ) : null}
@@ -410,7 +439,7 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
                   {/* Right Status */}
                   {isCompleted ? (
                     <Ionicons name="checkmark-circle" size={22} color="#10B981" />
-                  ) : (item.type === 'test' && history) ? (
+                  ) : (item.type === 'test' && hasHistory) ? (
                     <Ionicons name="alert-circle" size={22} color="#EF4444" />
                   ) : isLocked ? (
                     <Ionicons name="lock-closed" size={19} color="#94A3B8" />
@@ -454,7 +483,7 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
                 <Text style={styles.modalTestTitle} numberOfLines={1}>
                   {selectedHistoryTest?.title}
                 </Text>
-                <Text style={styles.modalSubtitle}>Topshirilgan natija tarixi</Text>
+                <Text style={styles.modalSubtitle}>Topshirilgan barcha natijalar tarixi</Text>
               </View>
               <TouchableOpacity 
                 style={styles.modalCloseBtn} 
@@ -464,81 +493,116 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
               </TouchableOpacity>
             </View>
 
-            {/* Score & Details Card */}
-            {selectedHistoryTest && testHistories[selectedHistoryTest.id] && (() => {
-              const h = testHistories[selectedHistoryTest.id];
-              return (
-                <View style={styles.historyStatsCard}>
-                  <View style={styles.historyTopRow}>
-                    <View>
-                      <Text style={[styles.historyScoreBig, !h.isPassed && { color: '#EF4444' }]}>
-                        {h.percentage}%
-                      </Text>
-                      <Text style={styles.historyScoreSub}>
-                        {h.score} / {h.total} ball ({h.correctCount} ta to'g'ri)
-                      </Text>
+            {/* List of all attempts */}
+            <ScrollView 
+              style={{ maxHeight: 380 }} 
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 6 }}
+            >
+              {selectedHistoryTest && (() => {
+                const rawH = testHistories[selectedHistoryTest.id];
+                const attempts = Array.isArray(rawH) ? rawH : (rawH ? [rawH] : []);
+                if (attempts.length === 0) {
+                  return (
+                    <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 13, color: '#64748B' }}>Natijalar tarixi mavjud emas</Text>
                     </View>
-                    <View style={[styles.historyStatusPill, h.isPassed ? styles.pillPassed : styles.pillFailed]}>
-                      <Ionicons 
-                        name={h.isPassed ? "checkmark-circle" : "close-circle"} 
-                        size={15} 
-                        color={h.isPassed ? "#059669" : "#DC2626"} 
-                        style={{ marginRight: 4 }} 
-                      />
-                      <Text style={[styles.historyStatusPillText, h.isPassed ? styles.textPassed : styles.textFailed]}>
-                        {h.isPassed ? "O'tdingiz" : "O'tolmadingiz"}
-                      </Text>
-                    </View>
-                  </View>
+                  );
+                }
 
-                  <View style={styles.historyDivider} />
+                // Show attempts newest first (so latest is on top)
+                const reversed = [...attempts].reverse();
 
-                  <View style={styles.historyGrid}>
-                    <View style={styles.historyGridItem}>
-                      <Text style={styles.historyItemLabel}>O'tish bali:</Text>
-                      <Text style={styles.historyItemVal}>{h.passingPercentage || 60}%</Text>
-                    </View>
-                    <View style={styles.historyGridItem}>
-                      <Text style={styles.historyItemLabel}>Sarflangan vaqt:</Text>
-                      <Text style={styles.historyItemVal}>{h.timeTaken || '—'}</Text>
-                    </View>
-                    <View style={styles.historyGridItem}>
-                      <Text style={styles.historyItemLabel}>Topshirilgan vaqt:</Text>
-                      <Text style={styles.historyItemVal}>{h.completedAt || 'Yaqinda'}</Text>
-                    </View>
-                  </View>
-                </View>
-              );
-            })()}
+                return reversed.map((h, revIdx) => {
+                  const attemptNum = h.attemptNumber || (attempts.length - revIdx);
+                  const isLatest = revIdx === 0;
 
-            {/* Action Buttons */}
-            <View style={styles.modalActionsRow}>
-              <TouchableOpacity 
-                style={styles.modalActionReview}
-                activeOpacity={0.8}
-                onPress={() => {
-                  const testToView = selectedHistoryTest;
-                  setSelectedHistoryTest(null);
-                  setViewingAnalysisTest(testToView);
-                }}
-              >
-                <Ionicons name="eye-outline" size={17} color="#7C3AED" style={{ marginRight: 6 }} />
-                <Text style={styles.modalActionReviewText}>Natijani ko'rish</Text>
-              </TouchableOpacity>
+                  return (
+                    <View key={revIdx} style={styles.attemptCard}>
+                      <View style={styles.attemptCardTop}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <View style={styles.attemptNumBadge}>
+                            <Text style={styles.attemptNumText}>{attemptNum}-urinish</Text>
+                          </View>
+                          {isLatest && (
+                            <View style={styles.latestBadge}>
+                              <Text style={styles.latestBadgeText}>Oxirgi</Text>
+                            </View>
+                          )}
+                        </View>
 
-              <TouchableOpacity 
-                style={styles.modalActionRetake}
-                activeOpacity={0.8}
-                onPress={() => {
-                  const testToRetake = selectedHistoryTest;
-                  setSelectedHistoryTest(null);
-                  setActiveTest(testToRetake);
-                }}
-              >
-                <Ionicons name="refresh" size={17} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.modalActionRetakeText}>Qayta ishlash</Text>
-              </TouchableOpacity>
-            </View>
+                        <View style={[styles.historyStatusPill, h.isPassed ? styles.pillPassed : styles.pillFailed]}>
+                          <Ionicons 
+                            name={h.isPassed ? "checkmark-circle" : "close-circle"} 
+                            size={14} 
+                            color={h.isPassed ? "#059669" : "#DC2626"} 
+                            style={{ marginRight: 4 }} 
+                          />
+                          <Text style={[styles.historyStatusPillText, h.isPassed ? styles.textPassed : styles.textFailed]}>
+                            {h.isPassed ? "O'tdingiz" : "O'tolmadingiz"}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.attemptBodyRow}>
+                        <View>
+                          <Text style={[styles.attemptScoreBig, !h.isPassed && { color: '#EF4444' }]}>
+                            {h.percentage}%
+                          </Text>
+                          <Text style={styles.attemptScoreSub}>
+                            {h.score} / {h.total} ball ({h.correctCount} ta to'g'ri)
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity 
+                          style={styles.attemptReviewBtn}
+                          activeOpacity={0.8}
+                          onPress={() => {
+                            setSelectedHistoryTest(null);
+                            setViewingAnalysisAttempt({
+                              ...h,
+                              testTitle: selectedHistoryTest.title,
+                              attemptNumber: attemptNum
+                            });
+                          }}
+                        >
+                          <Ionicons name="eye-outline" size={15} color="#7C3AED" style={{ marginRight: 5 }} />
+                          <Text style={styles.attemptReviewBtnText}>Natijani ko'rish</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      <View style={styles.attemptFooterRow}>
+                        <View style={styles.attemptMetaItem}>
+                          <Ionicons name="time-outline" size={13} color="#64748B" style={{ marginRight: 3 }} />
+                          <Text style={styles.attemptMetaText}>{h.timeTaken || '—'}</Text>
+                        </View>
+                        <View style={styles.attemptMetaItem}>
+                          <Ionicons name="calendar-outline" size={13} color="#64748B" style={{ marginRight: 3 }} />
+                          <Text style={styles.attemptMetaText}>{h.completedAt || 'Yaqinda'}</Text>
+                        </View>
+                        <View style={styles.attemptMetaItem}>
+                          <Text style={styles.attemptMetaText}>O'tish: {h.passingPercentage || 60}%</Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                });
+              })()}
+            </ScrollView>
+
+            {/* Bottom Full Action - Retake Test */}
+            <TouchableOpacity 
+              style={styles.modalRetakeFullBtn} 
+              activeOpacity={0.8}
+              onPress={() => {
+                const testToRetake = selectedHistoryTest;
+                setSelectedHistoryTest(null);
+                setActiveTest(testToRetake);
+              }}
+            >
+              <Ionicons name="refresh" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.modalRetakeFullBtnText}>Testni qayta ishlash</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -839,6 +903,110 @@ const styles = StyleSheet.create({
   },
   modalActionRetakeText: {
     fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  attemptCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 10,
+  },
+  attemptCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  attemptNumBadge: {
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginRight: 6,
+  },
+  attemptNumText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4F46E5',
+  },
+  latestBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  latestBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  attemptBodyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  attemptScoreBig: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#10B981',
+  },
+  attemptScoreSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  attemptReviewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E0D4F5',
+  },
+  attemptReviewBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#7C3AED',
+  },
+  attemptFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  attemptMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  attemptMetaText: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  modalRetakeFullBtn: {
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#7C3AED',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  modalRetakeFullBtnText: {
+    fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
   },

@@ -1775,9 +1775,14 @@ def course_progress_view(request):
             return Response({'success': False, 'message': 'O\'quvchi ushbu kursga a\'zo emas'}, status=status.HTTP_400_BAD_REQUEST)
 
         is_passed = True
-        if test_history and isinstance(test_history, dict):
-            if test_history.get('isPassed') is False:
-                is_passed = False
+        if test_history:
+            if isinstance(test_history, list) and len(test_history) > 0:
+                any_passed = any(att.get('isPassed') is True for att in test_history if isinstance(att, dict))
+                if not any_passed:
+                    is_passed = False
+            elif isinstance(test_history, dict):
+                if test_history.get('isPassed') is False:
+                    is_passed = False
 
         if completed_ids is not None and isinstance(completed_ids, list):
             curr_completed = [cid for cid in completed_ids]
@@ -1790,7 +1795,17 @@ def course_progress_view(request):
 
         if test_history and item_id:
             curr_histories = dict(enr.test_histories or {})
-            curr_histories[item_id] = test_history
+            if isinstance(test_history, list):
+                curr_histories[item_id] = test_history
+            elif isinstance(test_history, dict):
+                existing = curr_histories.get(item_id)
+                if isinstance(existing, list):
+                    existing.append(test_history)
+                    curr_histories[item_id] = existing
+                elif isinstance(existing, dict):
+                    curr_histories[item_id] = [existing, test_history]
+                else:
+                    curr_histories[item_id] = [test_history]
             enr.test_histories = curr_histories
 
         total_lessons = CourseLesson.objects.filter(module__course=course).count()
