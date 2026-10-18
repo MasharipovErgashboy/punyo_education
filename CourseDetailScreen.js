@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions, Platform, Linking, Alert, ActivityIndicator, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -32,9 +32,49 @@ export default function CourseDetailScreen({ course, userData, onBack }) {
   const [isEnrolling, setIsEnrolling] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [enrollInfo, setEnrollInfo] = useState(null);
+  const [applicationStatus, setApplicationStatus] = useState(null); // 'pending', 'approved', 'rejected', or null
+
+  const checkCourseStatus = useCallback(async () => {
+    try {
+      let currentUser = userData;
+      if (!currentUser) {
+        try {
+          const val = await AsyncStorage.getItem('userData');
+          if (val) currentUser = JSON.parse(val);
+        } catch (e) {}
+      }
+
+      const cId = courseData?.id || course?.id;
+      if (!cId) return;
+
+      const params = new URLSearchParams();
+      params.append('course_id', cId);
+      if (currentUser?.id || currentUser?.user_id) {
+        params.append('user_id', currentUser.id || currentUser.user_id);
+      }
+      if (currentUser?.phone) {
+        params.append('phone', currentUser.phone);
+      }
+      if (currentUser?.email) {
+        params.append('email', currentUser.email);
+      }
+
+      const res = await fetch(`http://192.168.0.107:8000/api/course-status/?${params.toString()}`);
+      const data = await res.json();
+      if (data.success) {
+        setApplicationStatus(data.application_status);
+      }
+    } catch (e) {}
+  }, [courseData?.id, course?.id, userData]);
+
+  useEffect(() => {
+    checkCourseStatus();
+    const statusInterval = setInterval(checkCourseStatus, 2500);
+    return () => clearInterval(statusInterval);
+  }, [checkCourseStatus]);
 
   const handleEnrollCourse = async () => {
-    if (isEnrolling) return;
+    if (isEnrolling || applicationStatus === 'pending' || applicationStatus === 'approved') return;
     setIsEnrolling(true);
 
     try {
@@ -69,6 +109,7 @@ export default function CourseDetailScreen({ course, userData, onBack }) {
         userName: currentUser?.name || 'Talaba',
         userPhone: currentUser?.phone || '+998 90 123 45 67'
       });
+      setApplicationStatus('pending');
       setShowSuccessModal(true);
     } catch (err) {
       console.log('Error applying for course:', err);
@@ -77,6 +118,7 @@ export default function CourseDetailScreen({ course, userData, onBack }) {
         userName: 'Talaba',
         userPhone: '+998 90 123 45 67'
       });
+      setApplicationStatus('pending');
       setShowSuccessModal(true);
     } finally {
       setIsEnrolling(false);
@@ -311,18 +353,30 @@ export default function CourseDetailScreen({ course, userData, onBack }) {
           <Text style={styles.priceLabel}>Kurs narxi</Text>
           <Text style={styles.priceValue}>{price}</Text>
         </View>
-        <TouchableOpacity 
-          style={[styles.enrollButton, isEnrolling && { opacity: 0.7 }]} 
-          activeOpacity={0.8}
-          onPress={handleEnrollCourse}
-          disabled={isEnrolling}
-        >
-          {isEnrolling ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <Text style={styles.enrollButtonText}>Kursga yozilish</Text>
-          )}
-        </TouchableOpacity>
+        {applicationStatus === 'pending' ? (
+          <View style={styles.pendingButton}>
+            <Ionicons name="time" size={16} color="#D97706" style={{ marginRight: 6 }} />
+            <Text style={styles.pendingButtonText}>Kutilmoqda</Text>
+          </View>
+        ) : applicationStatus === 'approved' ? (
+          <View style={styles.approvedButton}>
+            <Ionicons name="checkmark-circle" size={16} color="#15803D" style={{ marginRight: 6 }} />
+            <Text style={styles.approvedButtonText}>Tasdiqlangan</Text>
+          </View>
+        ) : (
+          <TouchableOpacity 
+            style={[styles.enrollButton, isEnrolling && { opacity: 0.7 }]} 
+            activeOpacity={0.8}
+            onPress={handleEnrollCourse}
+            disabled={isEnrolling}
+          >
+            {isEnrolling ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.enrollButtonText}>Kursga yozilish</Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Premium Application Success Modal */}
@@ -722,6 +776,48 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  pendingButton: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+    borderWidth: 1.5,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  pendingButtonText: {
+    color: '#B45309',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  approvedButton: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#BBF7D0',
+    borderWidth: 1.5,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  approvedButtonText: {
+    color: '#15803D',
+    fontSize: 14,
+    fontWeight: '700',
   },
   modalBackdrop: {
     flex: 1,

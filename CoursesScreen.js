@@ -189,10 +189,20 @@ export default function CoursesScreen({ lang, userData, onViewAll, onViewCourse,
     }
   }, []);
 
+  // Set of courses the user is enrolled in
+  const myCourseIds = useMemo(() => {
+    return new Set(myCourses.map(mc => Number(mc.id || mc.course_id)));
+  }, [myCourses]);
+
+  // Only courses the user has not yet enrolled in appear in "Barcha kurslar"
+  const availableCourses = useMemo(() => {
+    return courses.filter(c => !myCourseIds.has(Number(c.id)));
+  }, [courses, myCourseIds]);
+
   // Group dynamic backend courses by category (memoized for performance)
   const categoryMap = useMemo(() => {
     const map = {};
-    courses.forEach(c => {
+    availableCourses.forEach(c => {
       const catName = c.category_name || 'Boshqa kurslar';
       if (!map[catName]) {
         map[catName] = [];
@@ -200,7 +210,7 @@ export default function CoursesScreen({ lang, userData, onViewAll, onViewCourse,
       map[catName].push(c);
     });
     return map;
-  }, [courses]);
+  }, [availableCourses]);
 
   const categoryNames = useMemo(() => Object.keys(categoryMap), [categoryMap]);
 
@@ -290,8 +300,14 @@ export default function CoursesScreen({ lang, userData, onViewAll, onViewCourse,
             ) : (
               <View style={styles.emptyContainer}>
                 <Ionicons name="book-outline" size={48} color="#C4B5FD" />
-                <Text style={styles.emptyTitle}>Hozircha kurslar mavjud emas</Text>
-                <Text style={styles.emptySubtitle}>Admin panel orqali yangi kurslar qo'shilganda bu yerda ko'rinadi.</Text>
+                <Text style={styles.emptyTitle}>
+                  {myCourses.length > 0 ? "Barcha mavjud kurslarga a'zo bo'lgansiz" : "Hozircha kurslar mavjud emas"}
+                </Text>
+                <Text style={styles.emptySubtitle}>
+                  {myCourses.length > 0 
+                    ? "Siz yozilgan barcha kurslar 'Mening kurslarim' bo'limida joylashgan." 
+                    : "Admin panel orqali yangi kurslar qo'shilganda bu yerda ko'rinadi."}
+                </Text>
               </View>
             )}
           </>

@@ -1442,11 +1442,27 @@ def user_enrolled_courses_view(request):
 
     user = None
     if user_id:
-        user = CustomUser.objects.filter(user_id=user_id).first()
+        if str(user_id).isdigit():
+            user = CustomUser.objects.filter(id=int(user_id)).first()
+        if not user:
+            user = CustomUser.objects.filter(user_id=str(user_id)).first()
     if not user and email:
         user = CustomUser.objects.filter(email__iexact=email).first()
     if not user and phone:
         user = CustomUser.objects.filter(phone=phone).first()
+
+    # Sync any approved applications for this user/phone
+    if user:
+        approved_apps = CourseApplication.objects.filter(user=user, status='approved')
+        for app in approved_apps:
+            if app.course:
+                UserCourseEnrollment.objects.get_or_create(user=user, course=app.course)
+    elif phone:
+        approved_apps = CourseApplication.objects.filter(user_phone=phone, status='approved')
+        for app in approved_apps:
+            if app.user and app.course:
+                UserCourseEnrollment.objects.get_or_create(user=app.user, course=app.course)
+                user = app.user
 
     if not user:
         return Response({'success': True, 'count': 0, 'courses': []}, status=status.HTTP_200_OK)
@@ -1473,13 +1489,65 @@ def user_enrolled_courses_view(request):
             'duration': c.duration,
             'price': c.price,
             'progress': enr.progress_percent,
-            'enrolled_at': enr.enrolled_at.strftime('%d.%m.%Y'),
+            'enrolled_at': enr.enrolled_at.strftime('%d.%m.%Y') if enr.enrolled_at else '',
             'modules_count': modules_count,
             'lessons_count': lessons_count,
             'tests_count': tests_count,
         })
 
     return Response({'success': True, 'count': len(courses_data), 'courses': courses_data}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def course_user_status_view(request):
+    course_id = request.GET.get('course_id')
+    user_id = request.GET.get('user_id')
+    email = request.GET.get('email')
+    phone = request.GET.get('phone')
+
+    if not course_id:
+        return Response({'success': False, 'message': 'course_id kiritilishi shart'}, status=status.HTTP_400_BAD_REQUEST)
+
+    course = Course.objects.filter(id=course_id).first()
+    if not course:
+        return Response({'success': False, 'message': 'Kurs topilmadi'}, status=status.HTTP_404_NOT_FOUND)
+
+    user = None
+    if user_id:
+        if str(user_id).isdigit():
+            user = CustomUser.objects.filter(id=int(user_id)).first()
+        if not user:
+            user = CustomUser.objects.filter(user_id=str(user_id)).first()
+    if not user and email:
+        user = CustomUser.objects.filter(email__iexact=email).first()
+    if not user and phone:
+        user = CustomUser.objects.filter(phone=phone).first()
+
+    # 1. Check if enrolled
+    enrolled = False
+    if user:
+        enrolled = UserCourseEnrollment.objects.filter(user=user, course=course).exists()
+
+    # 2. Check application status
+    app = None
+    if user:
+        app = CourseApplication.objects.filter(user=user, course=course).order_by('-created_at').first()
+    if not app and phone:
+        app = CourseApplication.objects.filter(user_phone=phone, course=course).order_by('-created_at').first()
+    if not app and email:
+        app = CourseApplication.objects.filter(user_email__iexact=email, course=course).order_by('-created_at').first()
+
+    app_status = app.status if app else None
+    if enrolled:
+        app_status = 'approved'
+
+    return Response({
+        'success': True,
+        'course_id': course.id,
+        'enrolled': enrolled,
+        'application_status': app_status,  # 'pending', 'approved', 'rejected' or None
+    }, status=status.HTTP_200_OK)
 
 
 @api_view(['GET', 'DELETE'])
