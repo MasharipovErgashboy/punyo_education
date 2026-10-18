@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions, Platform, StatusBar as RNStatusBar } from 'react-native';
+import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions, Platform, StatusBar as RNStatusBar, Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +24,7 @@ export default function HomeScreen({ lang, onLogout, initialIsAuthenticated = fa
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
   const [userData, setUserData] = useState(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   useEffect(() => {
     if (Platform.OS === 'android') {
@@ -31,6 +32,26 @@ export default function HomeScreen({ lang, onLogout, initialIsAuthenticated = fa
       RNStatusBar.setBackgroundColor('transparent');
       RNStatusBar.setBarStyle('dark-content');
     }
+  }, []);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onShow = () => setIsKeyboardVisible(true);
+    const onHide = () => setIsKeyboardVisible(false);
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    const didShowSub = Keyboard.addListener('keyboardDidShow', onShow);
+    const didHideSub = Keyboard.addListener('keyboardDidHide', onHide);
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+      didShowSub.remove();
+      didHideSub.remove();
+    };
   }, []);
 
   useEffect(() => {
@@ -558,7 +579,7 @@ export default function HomeScreen({ lang, onLogout, initialIsAuthenticated = fa
           {activeTab === 'home' ? renderHomeContent() : null}
           {activeTab === 'courses' ? <CoursesScreen lang={lang} onViewAll={(cat) => setActiveCategory(cat)} onViewCourse={(course) => setActiveCourse(course)} initialFilter={coursesInitialFilter} onSubScreenToggle={setIsSubScreenOpen} /> : null}
           {activeTab === 'tests' ? <TestsScreen lang={lang} onViewAll={(cat) => setActiveCategory(cat)} onViewTest={(course) => setActiveTestIntro(course)} /> : null}
-          {activeTab === 'ai' ? <AiChatScreen /> : null}
+          {activeTab === 'ai' ? <AiChatScreen onKeyboardToggle={setIsKeyboardVisible} /> : null}
           {activeTab === 'profile' ? <ProfileScreen userData={userData} onNavigateToMyCourses={() => {
             setCoursesInitialFilter('Mening kurslarim');
             setActiveCategory(null);
@@ -579,7 +600,7 @@ export default function HomeScreen({ lang, onLogout, initialIsAuthenticated = fa
       )}
 
       {/* Bottom Navigation */}
-      {(!activeCourse && !showNotifications && !activeTestIntro && !activeTestRun && (!isSubScreenOpen || activeTab === 'profile')) && (
+      {(!activeCourse && !showNotifications && !activeTestIntro && !activeTestRun && (!isSubScreenOpen || activeTab === 'profile') && !isKeyboardVisible) && (
         <View style={styles.bottomNav}>
           <TouchableOpacity 
             style={styles.navItem} 

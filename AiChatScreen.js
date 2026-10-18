@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AiHistoryScreen from './AiHistoryScreen';
 
-export default function AiChatScreen() {
+export default function AiChatScreen({ onKeyboardToggle }) {
   const insets = useSafeAreaInsets();
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -13,20 +13,34 @@ export default function AiChatScreen() {
   const scrollViewRef = useRef(null);
 
   useEffect(() => {
-    const keyboardWillShowListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => setKeyboardVisible(true)
-    );
-    const keyboardWillHideListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => setKeyboardVisible(false)
-    );
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onShow = () => {
+      setKeyboardVisible(true);
+      if (onKeyboardToggle) onKeyboardToggle(true);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    };
+
+    const onHide = () => {
+      setKeyboardVisible(false);
+      if (onKeyboardToggle) onKeyboardToggle(false);
+    };
+
+    const keyboardShowListener = Keyboard.addListener(showEvent, onShow);
+    const keyboardHideListener = Keyboard.addListener(hideEvent, onHide);
+    const didShowListener = Keyboard.addListener('keyboardDidShow', onShow);
+    const didHideListener = Keyboard.addListener('keyboardDidHide', onHide);
 
     return () => {
-      keyboardWillShowListener.remove();
-      keyboardWillHideListener.remove();
+      keyboardShowListener.remove();
+      keyboardHideListener.remove();
+      didShowListener.remove();
+      didHideListener.remove();
     };
-  }, []);
+  }, [onKeyboardToggle]);
 
   if (showHistory) {
     return (
@@ -47,7 +61,7 @@ export default function AiChatScreen() {
   return (
     <KeyboardAvoidingView 
       style={styles.container} 
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <StatusBar style="dark" />
       
@@ -75,6 +89,7 @@ export default function AiChatScreen() {
         ref={scrollViewRef}
         showsVerticalScrollIndicator={false} 
         contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
       >
         
         {/* Hero Banner */}
@@ -187,6 +202,13 @@ export default function AiChatScreen() {
             style={styles.textInput} 
             placeholder="Savolingizni yozing..."
             placeholderTextColor="#999"
+            onFocus={() => {
+              setKeyboardVisible(true);
+              if (onKeyboardToggle) onKeyboardToggle(true);
+              setTimeout(() => {
+                scrollViewRef.current?.scrollToEnd({ animated: true });
+              }, 150);
+            }}
           />
           <TouchableOpacity style={styles.micButton}>
             <Ionicons name="mic-outline" size={24} color="#666" />
