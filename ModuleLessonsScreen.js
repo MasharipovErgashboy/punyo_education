@@ -206,14 +206,9 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
       console.log('Error saving progress to backend:', err);
     }
 
-    // 4. If test failed, return to lessons list and notify user
+    // 4. If test failed, return to lessons list
     if (isTestFailed) {
       setActiveTest(null);
-      Alert.alert(
-        "O'tish bali yetarli emas",
-        `Ushbu testdan o'tish uchun kamida ${resultData.passingPercentage}% to'plashingiz kerak. Siz ${resultData.percentage}% to'pladingiz. Tarixni ko'rish yoki testni qayta topshirish uchun test ustiga bosing.`,
-        [{ text: "Tushundim", style: "default" }]
-      );
       return;
     }
 
