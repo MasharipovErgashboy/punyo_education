@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 import datetime
 import json
-from .models import CustomUser, Ad, Category, Course, Teacher, CourseModule, CourseLesson, CourseTest, CourseCertificate
+from .models import CustomUser, Ad, Category, Course, Teacher, CourseModule, CourseLesson, CourseTest, CourseCertificate, CourseApplication, UserCourseEnrollment
 
 PENDING_USERS = {}
 
@@ -720,9 +720,13 @@ def course_detail_view(request, course_id):
 def course_modules_view(request):
     if request.method == 'GET':
         course_id = request.GET.get('course_id')
+        course_title = request.GET.get('course_title')
         qs = CourseModule.objects.all()
         if course_id:
             qs = qs.filter(course_id=course_id)
+        elif course_title:
+            qs = qs.filter(course__title__iexact=course_title.strip())
+
 
         data = []
         for m in qs:
@@ -1229,4 +1233,252 @@ def course_certificates_view(request):
             cert.delete()
             return Response({'success': True, 'message': 'Sertifikat muvaffaqiyatli o\'chirildi!'})
         return Response({'success': False, 'message': 'Sertifikat topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+
+def _serialize_application(request, app):
+    return {
+        'id': app.id,
+        'user_id': app.user.user_id if app.user else None,
+        'user_name': app.user_name,
+        'user_phone': app.user_phone,
+        'user_email': app.user_email,
+        'course_id': app.course.id if app.course else None,
+        'course_title': app.course.title if app.course else '',
+        'course_category': app.course.category.name if (app.course and app.course.category) else '',
+        'course_price': app.course.price if app.course else '',
+        'status': app.status,
+        'created_at': app.created_at.strftime('%d.%m.%Y %H:%M') if app.created_at else '',
+        'created_at_raw': app.created_at.isoformat() if app.created_at else '',
+    }
+
+
+@api_view(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
+@permission_classes([AllowAny])
+def course_applications_view(request, application_id=None):
+    from django.db.models import Q
+
+    if request.method == 'GET':
+        app_id = application_id or request.GET.get('id')
+        status_filter = request.GET.get('status')
+        search_query = request.GET.get('search', '').strip()
+
+        qs = CourseApplication.objects.select_related('course', 'course__category', 'user').all()
+
+        if app_id:
+            app = qs.filter(id=app_id).first()
+            if not app:
+                return Response({'success': False, 'message': 'Ariza topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'success': True, 'application': _serialize_application(request, app)})
+
+        if status_filter and status_filter != 'all':
+            qs = qs.filter(status=status_filter)
+
+        if search_query:
+            qs = qs.filter(
+                Q(user_name__icontains=search_query) |
+                Q(user_phone__icontains=search_query) |
+                Q(user_email__icontains=search_query) |
+                Q(course__title__icontains=search_query)
+            )
+
+        apps_list = [_serialize_application(request, a) for a in qs]
+
+        total_count = CourseApplication.objects.count()
+        pending_count = CourseApplication.objects.filter(status='pending').count()
+        approved_count = CourseApplication.objects.filter(status='approved').count()
+        rejected_count = CourseApplication.objects.filter(status='rejected').count()
+
+        return Response({
+            'success': True,
+            'count': len(apps_list),
+            'applications': apps_list,
+            'stats': {
+                'total': total_count,
+                'pending': pending_count,
+                'approved': approved_count,
+                'rejected': rejected_count
+            }
+        }, status=status.HTTP_200_OK)
+
+    elif request.method == 'POST':
+        course_id = request.data.get('course_id')
+        user_id = request.data.get('user_id')
+        user_name = (request.data.get('user_name') or '').strip()
+        user_phone = (request.data.get('user_phone') or '').strip()
+        user_email = (request.data.get('user_email') or '').strip()
+
+        if not course_id:
+            return Response({'success': False, 'message': 'Kurs ID ko\'rsatilishi shart!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        course = Course.objects.filter(id=course_id).first()
+        if not course:
+            return Response({'success': False, 'message': 'Kurs topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+        user = None
+        if user_id:
+            user = CustomUser.objects.filter(user_id=user_id).first()
+        if not user and user_email:
+            user = CustomUser.objects.filter(email__iexact=user_email).first()
+        if not user and user_phone:
+            user = CustomUser.objects.filter(phone=user_phone).first()
+
+        if user:
+            if not user_name:
+                user_name = user.name
+            if not user_phone and user.phone:
+                user_phone = user.phone
+            if not user_email and user.email:
+                user_email = user.email
+
+        if not user_name:
+            user_name = 'Talaba'
+        if not user_phone:
+            user_phone = 'Noma\'lum'
+
+        # Check existing pending application
+        existing_app = None
+        if user:
+            existing_app = CourseApplication.objects.filter(user=user, course=course, status='pending').first()
+        elif user_phone and user_phone != 'Noma\'lum':
+            existing_app = CourseApplication.objects.filter(user_phone=user_phone, course=course, status='pending').first()
+
+        if existing_app:
+            return Response({
+                'success': True,
+                'message': 'Siz ushbu kursga ariza berdingiz, sizga operatorlarimiz aloqaga chiqishadi',
+                'application': _serialize_application(request, existing_app)
+            }, status=status.HTTP_200_OK)
+
+        app = CourseApplication.objects.create(
+            user=user,
+            course=course,
+            user_name=user_name,
+            user_phone=user_phone,
+            user_email=user_email,
+            status='pending'
+        )
+
+        return Response({
+            'success': True,
+            'message': 'Siz ushbu kursga ariza berdingiz, sizga operatorlarimiz aloqaga chiqishadi',
+            'application': _serialize_application(request, app)
+        }, status=status.HTTP_201_CREATED)
+
+    elif request.method in ['PUT', 'PATCH']:
+        app_id = application_id or request.data.get('id') or request.GET.get('id')
+        if not app_id:
+            return Response({'success': False, 'message': 'Ariza ID ko\'rsatilmadi!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        app = CourseApplication.objects.filter(id=app_id).first()
+        if not app:
+            return Response({'success': False, 'message': 'Ariza topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+        new_status = request.data.get('status')
+        if new_status not in ['pending', 'approved', 'rejected']:
+            return Response({'success': False, 'message': 'Noto\'g\'ri status qiymati!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        app.status = new_status
+        app.save()
+
+        # If approved, enroll user!
+        if new_status == 'approved':
+            user = app.user
+            if not user:
+                if app.user_email:
+                    user = CustomUser.objects.filter(email__iexact=app.user_email).first()
+                if not user and app.user_phone and app.user_phone != 'Noma\'lum':
+                    user = CustomUser.objects.filter(phone=app.user_phone).first()
+
+                if not user:
+                    new_id = f"USR-{1001 + CustomUser.objects.count()}"
+                    today_str = datetime.date.today().strftime('%d.%m.%Y')
+                    user = CustomUser.objects.create(
+                        user_id=new_id,
+                        name=app.user_name,
+                        email=app.user_email or f"user_{app.id}@punyo.uz",
+                        phone=app.user_phone,
+                        role='Talaba',
+                        status='Faol',
+                        joined_date=today_str,
+                        auth_provider='application'
+                    )
+
+                app.user = user
+                app.save(update_fields=['user'])
+
+            # Enroll user in course
+            enrollment, created = UserCourseEnrollment.objects.get_or_create(user=user, course=app.course)
+
+            # Update user courses count
+            user.courses_count = UserCourseEnrollment.objects.filter(user=user).count()
+            user.save(update_fields=['courses_count'])
+
+            # Update course students count
+            enrollment_count = UserCourseEnrollment.objects.filter(course=app.course).count()
+            app.course.students_count = str(enrollment_count)
+            app.course.save(update_fields=['students_count'])
+
+        return Response({
+            'success': True,
+            'message': 'Ariza holati muvaffaqiyatli yangilandi!',
+            'application': _serialize_application(request, app)
+        }, status=status.HTTP_200_OK)
+
+    elif request.method == 'DELETE':
+        app_id = application_id or request.data.get('id') or request.GET.get('id')
+        app = CourseApplication.objects.filter(id=app_id).first()
+        if not app:
+            return Response({'success': False, 'message': 'Ariza topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+        app.delete()
+        return Response({'success': True, 'message': 'Ariza muvaffaqiyatli o\'chirildi!'}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def user_enrolled_courses_view(request):
+    user_id = request.GET.get('user_id')
+    email = request.GET.get('email')
+    phone = request.GET.get('phone')
+
+    user = None
+    if user_id:
+        user = CustomUser.objects.filter(user_id=user_id).first()
+    if not user and email:
+        user = CustomUser.objects.filter(email__iexact=email).first()
+    if not user and phone:
+        user = CustomUser.objects.filter(phone=phone).first()
+
+    if not user:
+        return Response({'success': True, 'count': 0, 'courses': []}, status=status.HTTP_200_OK)
+
+    enrollments = UserCourseEnrollment.objects.filter(user=user).select_related('course', 'course__category').all()
+    courses_data = []
+    for enr in enrollments:
+        c = enr.course
+        icon_url = request.build_absolute_uri(c.icon.url) if c.icon else None
+        modules_count = c.modules.count()
+        lessons_count = CourseLesson.objects.filter(module__course=c).count()
+        tests_count = CourseTest.objects.filter(module__course=c).count()
+
+        courses_data.append({
+            'id': c.id,
+            'course_id': c.id,
+            'title': c.title,
+            'name': c.title,
+            'category_name': c.category.name if c.category else '',
+            'icon': icon_url,
+            'icon_url': icon_url,
+            'hint': c.hint,
+            'level': c.hint or 'Boshlang\'ich daraja',
+            'duration': c.duration,
+            'price': c.price,
+            'progress': enr.progress_percent,
+            'enrolled_at': enr.enrolled_at.strftime('%d.%m.%Y'),
+            'modules_count': modules_count,
+            'lessons_count': lessons_count,
+            'tests_count': tests_count,
+        })
+
+    return Response({'success': True, 'count': len(courses_data), 'courses': courses_data}, status=status.HTTP_200_OK)
+
 

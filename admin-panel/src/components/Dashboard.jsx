@@ -41,10 +41,18 @@ import {
   FileCheck,
   Check,
   HelpCircle,
-  FileAudio
+  FileAudio,
+  X,
+  Clock,
+  Phone,
+  Mail,
+  RefreshCw,
+  AlertCircle,
+  XCircle
 } from 'lucide-react';
 import punyoLogo from '../assets/punyo_logo.png';
 import emptyAdsImage from '../assets/empty_ads.png';
+
 
 export default function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -158,6 +166,15 @@ export default function Dashboard({ user, onLogout }) {
   const [certTitle, setCertTitle] = useState('Kurs bitiruv sertifikati');
   const [isCertSubmitting, setIsCertSubmitting] = useState(false);
 
+  // Applications State
+  const [applicationsList, setApplicationsList] = useState([]);
+  const [applicationsStats, setApplicationsStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
+  const [applicationsFilter, setApplicationsFilter] = useState('all'); // 'all', 'pending', 'approved', 'rejected'
+  const [applicationsSearch, setApplicationsSearch] = useState('');
+  const [isApplicationsLoading, setIsApplicationsLoading] = useState(false);
+  const [processingAppId, setProcessingAppId] = useState(null);
+
+
   const [stats, setStats] = useState({
     total_students: 12450,
     active_courses: 28,
@@ -249,6 +266,104 @@ export default function Dashboard({ user, onLogout }) {
       })
       .catch(err => console.log("Failed to fetch courses", err));
   };
+
+  const fetchApplications = () => {
+    setIsApplicationsLoading(true);
+    const tryUrls = [
+      'http://192.168.0.107:8000/api/course-applications/',
+      'http://127.0.0.1:8000/api/course-applications/'
+    ];
+
+    const doFetch = (index = 0) => {
+      if (index >= tryUrls.length) {
+        setIsApplicationsLoading(false);
+        return;
+      }
+      fetch(tryUrls[index])
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.applications) {
+            setApplicationsList(data.applications);
+            if (data.stats) {
+              setApplicationsStats(data.stats);
+            }
+          }
+          setIsApplicationsLoading(false);
+        })
+        .catch(() => {
+          doFetch(index + 1);
+        });
+    };
+
+    doFetch(0);
+  };
+
+  const handleUpdateApplicationStatus = async (appId, newStatus) => {
+    setProcessingAppId(appId);
+    const tryUrls = [
+      `http://192.168.0.107:8000/api/course-applications/${appId}/`,
+      `http://127.0.0.1:8000/api/course-applications/${appId}/`
+    ];
+
+    let success = false;
+    let message = '';
+
+    for (const url of tryUrls) {
+      try {
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          success = true;
+          message = data.message;
+          break;
+        } else {
+          message = data.message || 'Xatolik yuz berdi';
+        }
+      } catch (err) {
+        // try next fallback
+      }
+    }
+
+    setProcessingAppId(null);
+    if (success) {
+      if (newStatus === 'approved') {
+        alert("Ariza muvaffaqiyatli tasdiqlandi va kurs o'quvchiga biriktirildi!");
+      } else if (newStatus === 'rejected') {
+        alert("Ariza rad etildi!");
+      }
+      fetchApplications();
+      fetchCourses();
+    } else {
+      alert(message || "Xatolik yuz berdi!");
+    }
+  };
+
+  const handleDeleteApplication = async (appId) => {
+    if (!window.confirm("Arizani ro'yxatdan o'chirishni istaysizmi?")) return;
+    setProcessingAppId(appId);
+    const tryUrls = [
+      `http://192.168.0.107:8000/api/course-applications/${appId}/`,
+      `http://127.0.0.1:8000/api/course-applications/${appId}/`
+    ];
+
+    for (const url of tryUrls) {
+      try {
+        const res = await fetch(url, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          alert("Ariza muvaffaqiyatli o'chirildi!");
+          fetchApplications();
+          break;
+        }
+      } catch (e) {}
+    }
+    setProcessingAppId(null);
+  };
+
 
   const handleOpenCreateCategory = () => {
     setEditingCategory(null);
@@ -959,7 +1074,16 @@ export default function Dashboard({ user, onLogout }) {
     // Fetch categories and courses
     fetchCategories();
     fetchCourses();
+    fetchApplications();
+
+    // Auto-refresh applications every 5 seconds
+    const appInterval = setInterval(() => {
+      fetchApplications();
+    }, 5000);
+
+    return () => clearInterval(appInterval);
   }, []);
+
 
   const filteredUsers = usersList.filter(u => {
     const matchesSearch = u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) || 
@@ -1582,9 +1706,14 @@ export default function Dashboard({ user, onLogout }) {
                 className={`course-subtab-btn ${coursesTab === 'applications' ? 'active' : ''}`}
                 onClick={() => setCoursesTab('applications')}
               >
-                <FileText size={16} /> Arizalar
-                <span className="course-subtab-badge">Tez kunda</span>
+                <FileText size={16} /> Arizalar bo'limi
+                {applicationsStats.pending > 0 && (
+                  <span style={{ marginLeft: 6, padding: '2px 7px', borderRadius: 10, fontSize: 11, fontWeight: 700, background: '#F59E0B', color: '#FFF' }}>
+                    {applicationsStats.pending}
+                  </span>
+                )}
               </button>
+
               <button 
                 className={`course-subtab-btn ${coursesTab === 'students' ? 'active' : ''}`}
                 onClick={() => setCoursesTab('students')}
@@ -3202,20 +3331,442 @@ export default function Dashboard({ user, onLogout }) {
               </div>
             )}
           </div>
-        ) : (
-              <div style={{ textAlign: 'center', padding: '80px 20px', background: '#FFFFFF', borderRadius: 20, border: '1px solid #E2E8F0' }}>
-                <div style={{ width: 64, height: 64, borderRadius: 32, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#2563EB' }}>
-                  <Layers size={32} />
-                </div>
-                <h3 style={{ fontSize: 18, fontWeight: 800, color: '#0F172A', marginBottom: 6 }}>
-                  {coursesTab === 'applications' && "Arizalar bo'limi"}
-                  {coursesTab === 'students' && "O'quvchilar bo'limi"}
+        ) : coursesTab === 'applications' ? (
+          <div className="applications-management-container" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {/* Header & Stats Banner */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+              <div>
+                <h3 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>
+                  Kurslar Bo'yicha Arizalar
                 </h3>
-                <p style={{ color: '#64748B', fontSize: 14 }}>
-                  Ushbu bo'lim keyingi bosqichda to'liq integratsiya qilinadi.
+                <p style={{ color: '#64748B', fontSize: 13, margin: 0 }}>
+                  Mobil ilovadan o'quvchilar tomonidan kurslarga yuborilgan barcha arizalar va ularni tasdiqlash
                 </p>
               </div>
-            )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button 
+                  onClick={fetchApplications}
+                  disabled={isApplicationsLoading}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '8px 16px',
+                    borderRadius: 10,
+                    border: '1px solid #E2E8F0',
+                    background: '#FFFFFF',
+                    color: '#475569',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <RefreshCw size={15} className={isApplicationsLoading ? 'spin-anim' : ''} />
+                  Yangilash
+                </button>
+              </div>
+            </div>
+
+            {/* 4 Stats Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 16 }}>
+              <div style={{ background: '#FFFFFF', padding: '18px 20px', borderRadius: 16, border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 16, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <div style={{ width: 48, height: 48, borderRadius: 12, background: '#F5F3FF', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Layers size={24} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Jami Arizalar</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#0F172A' }}>{applicationsStats.total}</div>
+                </div>
+              </div>
+
+              <div style={{ background: '#FFFFFF', padding: '18px 20px', borderRadius: 16, border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 16, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <div style={{ width: 48, height: 48, borderRadius: 12, background: '#FEF3C7', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Clock size={24} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Kutilayotgan</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#D97706' }}>{applicationsStats.pending}</div>
+                </div>
+              </div>
+
+              <div style={{ background: '#FFFFFF', padding: '18px 20px', borderRadius: 16, border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 16, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <div style={{ width: 48, height: 48, borderRadius: 12, background: '#DCFCE7', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CheckCircle2 size={24} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Tasdiqlangan</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#16A34A' }}>{applicationsStats.approved}</div>
+                </div>
+              </div>
+
+              <div style={{ background: '#FFFFFF', padding: '18px 20px', borderRadius: 16, border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 16, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <div style={{ width: 48, height: 48, borderRadius: 12, background: '#FEE2E2', color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <XCircle size={24} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Rad Etilgan</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#DC2626' }}>{applicationsStats.rejected}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Tabs & Search Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, background: '#FFFFFF', padding: '12px 16px', borderRadius: 14, border: '1px solid #E2E8F0' }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => setApplicationsFilter('all')}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    border: 'none',
+                    background: applicationsFilter === 'all' ? '#7C3AED' : '#F1F5F9',
+                    color: applicationsFilter === 'all' ? '#FFFFFF' : '#475569',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Barchasi ({applicationsStats.total})
+                </button>
+                <button
+                  onClick={() => setApplicationsFilter('pending')}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    border: 'none',
+                    background: applicationsFilter === 'pending' ? '#D97706' : '#F1F5F9',
+                    color: applicationsFilter === 'pending' ? '#FFFFFF' : '#475569',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Kutilmoqda ({applicationsStats.pending})
+                </button>
+                <button
+                  onClick={() => setApplicationsFilter('approved')}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    border: 'none',
+                    background: applicationsFilter === 'approved' ? '#16A34A' : '#F1F5F9',
+                    color: applicationsFilter === 'approved' ? '#FFFFFF' : '#475569',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Tasdiqlangan ({applicationsStats.approved})
+                </button>
+                <button
+                  onClick={() => setApplicationsFilter('rejected')}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    border: 'none',
+                    background: applicationsFilter === 'rejected' ? '#DC2626' : '#F1F5F9',
+                    color: applicationsFilter === 'rejected' ? '#FFFFFF' : '#475569',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Rad etilgan ({applicationsStats.rejected})
+                </button>
+              </div>
+
+              {/* Search Box */}
+              <div style={{ position: 'relative', minWidth: 280 }}>
+                <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                <input 
+                  type="text"
+                  placeholder="O'quvchi, telefon yoki kurs..."
+                  value={applicationsSearch}
+                  onChange={(e) => setApplicationsSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px 8px 36px',
+                    borderRadius: 8,
+                    border: '1px solid #E2E8F0',
+                    fontSize: 13,
+                    outline: 'none',
+                    background: '#F8FAFC'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Applications Table Card */}
+            <div style={{ background: '#FFFFFF', borderRadius: 16, border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
+              {(() => {
+                const filtered = applicationsList.filter(app => {
+                  const matchesFilter = applicationsFilter === 'all' || app.status === applicationsFilter;
+                  const q = applicationsSearch.toLowerCase();
+                  const matchesSearch = !q || 
+                    (app.user_name && app.user_name.toLowerCase().includes(q)) ||
+                    (app.user_phone && app.user_phone.toLowerCase().includes(q)) ||
+                    (app.user_email && app.user_email.toLowerCase().includes(q)) ||
+                    (app.course_title && app.course_title.toLowerCase().includes(q));
+                  return matchesFilter && matchesSearch;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+                      <div style={{ width: 56, height: 56, borderRadius: 28, background: '#F1F5F9', color: '#94A3B8', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                        <ClipboardCheck size={28} />
+                      </div>
+                      <h4 style={{ fontSize: 16, fontWeight: 700, color: '#1E293B', marginBottom: 4 }}>
+                        Arizalar topilmadi
+                      </h4>
+                      <p style={{ color: '#64748B', fontSize: 13, margin: 0 }}>
+                        {applicationsList.length === 0 
+                          ? "Hozircha hech qanday ariza kelib tushmagan. Mobil ilovadan o'quvchilar kursga yozilganda bu yerda paydo bo'ladi."
+                          : "Tanlangan filtr yoki qidiruv so'rovi bo'yicha hech qanday ariza topilmadi."}
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                          <th style={{ padding: '14px 16px', fontSize: 12, fontWeight: 700, color: '#475569', width: 60 }}>#</th>
+                          <th style={{ padding: '14px 16px', fontSize: 12, fontWeight: 700, color: '#475569' }}>O'quvchi ma'lumotlari</th>
+                          <th style={{ padding: '14px 16px', fontSize: 12, fontWeight: 700, color: '#475569' }}>Telefon raqami</th>
+                          <th style={{ padding: '14px 16px', fontSize: 12, fontWeight: 700, color: '#475569' }}>Ariza berilgan kurs</th>
+                          <th style={{ padding: '14px 16px', fontSize: 12, fontWeight: 700, color: '#475569' }}>Ariza vaqti</th>
+                          <th style={{ padding: '14px 16px', fontSize: 12, fontWeight: 700, color: '#475569' }}>Holati</th>
+                          <th style={{ padding: '14px 16px', fontSize: 12, fontWeight: 700, color: '#475569', textAlign: 'center' }}>Amallar</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map((app) => (
+                          <tr key={app.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' }}>
+                            <td style={{ padding: '14px 16px', fontSize: 13, fontWeight: 700, color: '#64748B' }}>
+                              #{app.id}
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{
+                                  width: 40,
+                                  height: 40,
+                                  borderRadius: 20,
+                                  background: 'linear-gradient(135deg, #7C3AED, #4F46E5)',
+                                  color: '#FFFFFF',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontWeight: 700,
+                                  fontSize: 15,
+                                  flexShrink: 0
+                                }}>
+                                  {app.user_name ? app.user_name.charAt(0).toUpperCase() : 'U'}
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>
+                                    {app.user_name}
+                                  </div>
+                                  <div style={{ fontSize: 12, color: '#64748B' }}>
+                                    {app.user_email || (app.user_id ? `ID: ${app.user_id}` : 'Mobil foydalanuvchi')}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '4px 10px',
+                                background: '#F0F9FF',
+                                borderRadius: 8,
+                                border: '1px solid #BAE6FD',
+                                color: '#0369A1',
+                                fontSize: 13,
+                                fontWeight: 600
+                              }}>
+                                <Phone size={13} />
+                                {app.user_phone}
+                              </div>
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: '#1E293B', marginBottom: 2 }}>
+                                {app.course_title}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                {app.course_category && (
+                                  <span style={{ fontSize: 11, background: '#EDE9FE', color: '#6D28D9', padding: '2px 8px', borderRadius: 6, fontWeight: 600 }}>
+                                    {app.course_category}
+                                  </span>
+                                )}
+                                {app.course_price && (
+                                  <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 700 }}>
+                                    {app.course_price}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569' }}>
+                                <Clock size={13} style={{ color: '#94A3B8' }} />
+                                {app.created_at}
+                              </div>
+                            </td>
+                            <td style={{ padding: '14px 16px' }}>
+                              {app.status === 'pending' && (
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  background: '#FEF3C7',
+                                  color: '#B45309',
+                                  padding: '4px 10px',
+                                  borderRadius: 20,
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  border: '1px solid #FDE68A'
+                                }}>
+                                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#F59E0B' }} />
+                                  Kutilmoqda
+                                </span>
+                              )}
+                              {app.status === 'approved' && (
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  background: '#DCFCE7',
+                                  color: '#15803D',
+                                  padding: '4px 10px',
+                                  borderRadius: 20,
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  border: '1px solid #BBF7D0'
+                                }}>
+                                  <CheckCircle2 size={13} />
+                                  Tasdiqlangan
+                                </span>
+                              )}
+                              {app.status === 'rejected' && (
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  background: '#FEE2E2',
+                                  color: '#B91C1C',
+                                  padding: '4px 10px',
+                                  borderRadius: 20,
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  border: '1px solid #FECACA'
+                                }}>
+                                  <XCircle size={13} />
+                                  Rad etilgan
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                                {/* Tasdiqlash Button (Check Icon) */}
+                                <button
+                                  title="Arizani tasdiqlash va kursni o'quvchiga ochish"
+                                  onClick={() => handleUpdateApplicationStatus(app.id, 'approved')}
+                                  disabled={processingAppId === app.id || app.status === 'approved'}
+                                  style={{
+                                    width: 36,
+                                    height: 36,
+                                    borderRadius: 10,
+                                    border: '1px solid #86EFAC',
+                                    background: app.status === 'approved' ? '#F0FDF4' : '#DCFCE7',
+                                    color: '#16A34A',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: app.status === 'approved' ? 'default' : 'pointer',
+                                    opacity: app.status === 'approved' ? 0.5 : 1,
+                                    transition: 'all 0.2s',
+                                  }}
+                                >
+                                  <Check size={18} strokeWidth={2.5} />
+                                </button>
+
+                                {/* Rad Etish Button (X Icon) */}
+                                <button
+                                  title="Arizani rad etish"
+                                  onClick={() => handleUpdateApplicationStatus(app.id, 'rejected')}
+                                  disabled={processingAppId === app.id || app.status === 'rejected'}
+                                  style={{
+                                    width: 36,
+                                    height: 36,
+                                    borderRadius: 10,
+                                    border: '1px solid #FCA5A5',
+                                    background: app.status === 'rejected' ? '#FEF2F2' : '#FEE2E2',
+                                    color: '#DC2626',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: app.status === 'rejected' ? 'default' : 'pointer',
+                                    opacity: app.status === 'rejected' ? 0.5 : 1,
+                                    transition: 'all 0.2s',
+                                  }}
+                                >
+                                  <X size={18} strokeWidth={2.5} />
+                                </button>
+
+                                {/* O'chirish Button (Trash) */}
+                                <button
+                                  title="Arizani o'chirish"
+                                  onClick={() => handleDeleteApplication(app.id)}
+                                  disabled={processingAppId === app.id}
+                                  style={{
+                                    width: 36,
+                                    height: 36,
+                                    borderRadius: 10,
+                                    border: '1px solid #E2E8F0',
+                                    background: '#FFFFFF',
+                                    color: '#94A3B8',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                  }}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '80px 20px', background: '#FFFFFF', borderRadius: 20, border: '1px solid #E2E8F0' }}>
+            <div style={{ width: 64, height: 64, borderRadius: 32, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#2563EB' }}>
+              <Layers size={32} />
+            </div>
+            <h3 style={{ fontSize: 18, fontWeight: 800, color: '#0F172A', marginBottom: 6 }}>
+              O'quvchilar bo'limi
+            </h3>
+            <p style={{ color: '#64748B', fontSize: 14 }}>
+              Ushbu bo'lim keyingi bosqichda to'liq integratsiya qilinadi.
+            </p>
+          </div>
+        )}
+
           </div>
         )}
       </main>

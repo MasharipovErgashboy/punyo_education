@@ -3,7 +3,8 @@ from .views import (
     admin_login_view, admin_stats_view, admin_users_view, admin_user_detail_view, 
     google_auth_view, user_register_view, user_login_view, verify_otp_view, 
     admin_ads_view, categories_view, courses_view, course_detail_view,
-    course_modules_view, course_lessons_view, course_tests_view, course_certificates_view
+    course_modules_view, course_lessons_view, course_tests_view, course_certificates_view,
+    course_applications_view, user_enrolled_courses_view
 )
 
 urlpatterns = [
@@ -23,4 +24,7 @@ urlpatterns = [
     path('course-lessons/', course_lessons_view, name='course_lessons'),
     path('course-tests/', course_tests_view, name='course_tests'),
     path('course-certificates/', course_certificates_view, name='course_certificates'),
+    path('course-applications/', course_applications_view, name='course_applications'),
+    path('course-applications/<int:application_id>/', course_applications_view, name='course_application_detail'),
+    path('my-courses/', user_enrolled_courses_view, name='user_enrolled_courses'),
 ]

@@ -1,14 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import YoutubePlayer from 'react-native-youtube-iframe';
 
 const { width } = Dimensions.get('window');
 
-export default function LessonDetailScreen({ lessonTitle = 'Dars 1 IELTS Introduction', onBack, onNext }) {
+const getYouTubeId = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  return match ? match[1] : null;
+};
+
+export default function LessonDetailScreen({ lesson, lessonTitle = 'Dars 1 IELTS Introduction', duration, youtubeUrl, onBack, onNext }) {
   const insets = useSafeAreaInsets();
   const [isPlaying, setIsPlaying] = useState(false);
+
+  const activeTitle = lessonTitle || lesson?.title || 'Darslik';
+  const rawUrl = youtubeUrl || lesson?.youtube_url;
+  const youtubeId = useMemo(() => getYouTubeId(rawUrl), [rawUrl]);
+  const activeDuration = duration || lesson?.duration || '15 daqiqa';
+  const activeDescription = lesson?.description;
 
   return (
     <View style={styles.container}>
@@ -16,18 +29,29 @@ export default function LessonDetailScreen({ lessonTitle = 'Dars 1 IELTS Introdu
 
       {/* Top Video Player */}
       <View style={[styles.videoPlayerContainer, { height: 230 + (insets.top > 0 ? insets.top : (Platform.OS === 'ios' ? 44 : 25)) }]}>
-        {/* Video Background Mockup */}
-        <Image 
-          source={{ uri: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80' }} 
-          style={styles.videoBg} 
-          resizeMode="cover"
-        />
+        {youtubeId ? (
+          <View style={{ flex: 1, backgroundColor: '#000000', justifyContent: 'center' }}>
+            <YoutubePlayer
+              height={230}
+              play={isPlaying}
+              videoId={youtubeId}
+            />
+          </View>
+        ) : (
+          /* Video Background Mockup */
+          <Image 
+            source={{ uri: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80' }} 
+            style={styles.videoBg} 
+            resizeMode="cover"
+          />
+        )}
 
         {/* Top Overlay Gradient Bar */}
         <View style={[styles.videoHeaderOverlay, { paddingTop: insets.top > 0 ? insets.top + 8 : (Platform.OS === 'ios' ? 50 : 35) }]}>
           <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
+
 
           <View style={styles.videoBrandInfo}>
             <View style={styles.brandLogoBox}>
@@ -108,7 +132,7 @@ export default function LessonDetailScreen({ lessonTitle = 'Dars 1 IELTS Introdu
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.docScrollContent}>
         {/* Title Row */}
         <View style={styles.titleRow}>
-          <Text style={styles.docTitle}>{lessonTitle}</Text>
+          <Text style={styles.docTitle}>{activeTitle}</Text>
           <View style={styles.docIconBadge}>
             <Ionicons name="document-text" size={20} color="#7c3aed" />
           </View>
@@ -116,9 +140,15 @@ export default function LessonDetailScreen({ lessonTitle = 'Dars 1 IELTS Introdu
 
         {/* Documentation Paragraphs */}
         <View style={styles.docBody}>
-          <Text style={styles.headingText}>IELTS – The International English Language Testing System</Text>
-          
-          <Text style={styles.paragraphText}>IELTS – Xalqaro Ingliz tili test tizimi</Text>
+          {activeDescription ? (
+            <Text style={styles.paragraphText}>{activeDescription}</Text>
+          ) : (
+            <>
+              <Text style={styles.headingText}>IELTS – The International English Language Testing System</Text>
+              <Text style={styles.paragraphText}>IELTS – Xalqaro Ingliz tili test tizimi</Text>
+            </>
+          )}
+
           
           <Text style={styles.paragraphText}>
             Eng birinchi IELTS imtihoniga 1989-yilda topshirilgan.

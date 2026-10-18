@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Platform, RefreshControl, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import CourseModulesScreen from './CourseModulesScreen';
 
 // Standalone memoized CourseItem to prevent re-mounting and flickering on iOS
@@ -37,40 +38,54 @@ const CourseItem = React.memo(({ course, iconUri, title, subtitle, onViewCourse 
 });
 
 // Standalone memoized MyCourseItem
-const MyCourseItem = React.memo(({ icon, title, level, progress, onSelect }) => (
-  <TouchableOpacity 
-    style={styles.myCourseCard} 
-    activeOpacity={0.8}
-    onPress={onSelect}
-  >
-    <Image source={icon} style={styles.myCourseIcon} resizeMode="contain" fadeDuration={0} />
-    
-    <View style={styles.myCourseInfo}>
-      <Text style={styles.myCourseTitle}>{title}</Text>
-      <Text style={styles.myCourseLevel}>{level}</Text>
+const MyCourseItem = React.memo(({ icon, iconUri, title, level, progress, onSelect }) => {
+  const imageSource = useMemo(() => {
+    if (iconUri) return { uri: iconUri, cache: 'force-cache' };
+    if (icon) {
+      if (typeof icon === 'string') return { uri: icon, cache: 'force-cache' };
+      return icon;
+    }
+    return require('./assets/uk.png');
+  }, [icon, iconUri]);
+
+  return (
+    <TouchableOpacity 
+      style={styles.myCourseCard} 
+      activeOpacity={0.8}
+      onPress={onSelect}
+    >
+      <Image source={imageSource} style={styles.myCourseIcon} resizeMode="contain" fadeDuration={0} />
       
-      {/* Progress Bar Row */}
-      <View style={styles.myProgressRow}>
-        <View style={styles.myProgressBarBg}>
-          <View style={[styles.myProgressBarFill, { width: `${progress}%` }]} />
+      <View style={styles.myCourseInfo}>
+        <Text style={styles.myCourseTitle}>{title}</Text>
+        <Text style={styles.myCourseLevel}>{level}</Text>
+        
+        {/* Progress Bar Row */}
+        <View style={styles.myProgressRow}>
+          <View style={styles.myProgressBarBg}>
+            <View style={[styles.myProgressBarFill, { width: `${progress}%` }]} />
+          </View>
+          <Text style={styles.myProgressPercent}>{progress}%</Text>
         </View>
-        <Text style={styles.myProgressPercent}>{progress}%</Text>
       </View>
-    </View>
 
-    {/* Right Arrow Button (>) */}
-    <View style={styles.arrowBtnContainer}>
-      <Ionicons name="chevron-forward" size={20} color="#666" />
-    </View>
-  </TouchableOpacity>
-));
+      {/* Right Arrow Button (>) */}
+      <View style={styles.arrowBtnContainer}>
+        <Ionicons name="chevron-forward" size={20} color="#666" />
+      </View>
+    </TouchableOpacity>
+  );
+});
 
-export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFilter = 'Barcha kurslar', onSubScreenToggle }) {
+
+export default function CoursesScreen({ lang, userData, onViewAll, onViewCourse, initialFilter = 'Barcha kurslar', onSubScreenToggle }) {
   const insets = useSafeAreaInsets();
   const [activeFilter, setActiveFilter] = useState(initialFilter);
   const [selectedCourseModule, setSelectedCourseModule] = useState(null);
   const [courses, setCourses] = useState([]);
+  const [myCourses, setMyCourses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMyCoursesLoading, setIsMyCoursesLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   const filters = ['Barcha kurslar', 'Mening kurslarim'];
@@ -81,7 +96,6 @@ export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFi
       const data = await res.json();
       if (data.success && Array.isArray(data.courses)) {
         setCourses(prev => {
-          // Compare content to avoid re-rendering if unchanged
           if (JSON.stringify(prev) === JSON.stringify(data.courses)) {
             return prev;
           }
@@ -98,20 +112,63 @@ export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFi
     }
   }, []);
 
+  const fetchMyCourses = useCallback(async (silent = false) => {
+    try {
+      let currentUser = userData;
+      if (!currentUser) {
+        try {
+          const val = await AsyncStorage.getItem('userData');
+          if (val) currentUser = JSON.parse(val);
+        } catch (e) {}
+      }
+
+      const params = new URLSearchParams();
+      if (currentUser?.id || currentUser?.user_id) {
+        params.append('user_id', currentUser.id || currentUser.user_id);
+      }
+      if (currentUser?.email) {
+        params.append('email', currentUser.email);
+      }
+      if (currentUser?.phone) {
+        params.append('phone', currentUser.phone);
+      }
+
+      const res = await fetch(`http://192.168.0.107:8000/api/my-courses/?${params.toString()}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.courses)) {
+        setMyCourses(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(data.courses)) {
+            return prev;
+          }
+          return data.courses;
+        });
+      }
+    } catch (err) {
+      if (!silent) console.log('Error fetching my courses:', err);
+    } finally {
+      if (!silent) {
+        setIsMyCoursesLoading(false);
+      }
+    }
+  }, [userData]);
+
   useEffect(() => {
     fetchCourses();
+    fetchMyCourses();
 
     // Real-time polling every 2.5 seconds to sync with admin panel changes
     const interval = setInterval(() => {
       fetchCourses(true);
+      fetchMyCourses(true);
     }, 2500);
 
     return () => clearInterval(interval);
-  }, [fetchCourses]);
+  }, [fetchCourses, fetchMyCourses]);
 
   const onRefresh = () => {
     setIsRefreshing(true);
     fetchCourses();
+    fetchMyCourses();
   };
 
   useEffect(() => {
@@ -124,8 +181,12 @@ export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFi
     if (onViewCourse) onViewCourse(c);
   }, [onViewCourse]);
 
-  const handleSelectModule = useCallback((title) => {
-    setSelectedCourseModule({ title });
+  const handleSelectModule = useCallback((courseItem) => {
+    if (typeof courseItem === 'string') {
+      setSelectedCourseModule({ title: courseItem });
+    } else {
+      setSelectedCourseModule(courseItem);
+    }
   }, []);
 
   // Group dynamic backend courses by category (memoized for performance)
@@ -146,11 +207,14 @@ export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFi
   if (selectedCourseModule) {
     return (
       <CourseModulesScreen 
-        courseTitle={selectedCourseModule.title} 
+        course={selectedCourseModule}
+        courseId={selectedCourseModule.id || selectedCourseModule.course_id}
+        courseTitle={selectedCourseModule.title || selectedCourseModule.name} 
         onBack={() => setSelectedCourseModule(null)} 
       />
     );
   }
+
 
   return (
     <View style={styles.container}>
@@ -233,27 +297,40 @@ export default function CoursesScreen({ lang, onViewAll, onViewCourse, initialFi
           </>
         ) : (
           <View style={styles.myCoursesList}>
-            <MyCourseItem 
-              icon={require('./assets/html.png')} 
-              title="HTML & CSS" 
-              level="Boshlang'ich daraja" 
-              progress={30}
-              onSelect={() => handleSelectModule("HTML & CSS")}
-            />
-            <MyCourseItem 
-              icon={require('./assets/uk.png')} 
-              title="English A1 – Beginner" 
-              level="Boshlang'ich daraja" 
-              progress={60}
-              onSelect={() => handleSelectModule("English A1 – Beginner")}
-            />
-            <MyCourseItem 
-              icon={require('./assets/python.png')} 
-              title="Python Basics" 
-              level="Boshlang'ich daraja" 
-              progress={45}
-              onSelect={() => handleSelectModule("Python Basics")}
-            />
+            {isMyCoursesLoading && myCourses.length === 0 ? (
+              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#7c3aed" />
+              </View>
+            ) : myCourses.length > 0 ? (
+              myCourses.map((c) => (
+                <MyCourseItem 
+                  key={c.id || c.course_id}
+                  icon={c.icon || c.icon_url}
+                  iconUri={c.icon || c.icon_url}
+                  title={c.title || c.name} 
+                  level={c.level || c.hint || "Boshlang'ich daraja"} 
+                  progress={c.progress || 0}
+                  onSelect={() => handleSelectModule(c)}
+                />
+              ))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyIconCircle}>
+                  <Ionicons name="book-outline" size={38} color="#7C3AED" />
+                </View>
+                <Text style={styles.emptyTitle}>Sizda hali faol kurslar yo'q</Text>
+                <Text style={styles.emptySubtitle}>
+                  Barcha kurslar bo'limidan o'zingizga qiziq kursni tanlab, 'Kursga yozilish' tugmasini bosing. Admin tasdiqlashi bilan kursingiz shu yerda ochiladi.
+                </Text>
+                <TouchableOpacity 
+                  style={styles.browseCoursesBtn} 
+                  activeOpacity={0.8}
+                  onPress={() => setActiveFilter('Barcha kurslar')}
+                >
+                  <Text style={styles.browseCoursesBtnText}>Barcha kurslarni ko'rish</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 
@@ -475,4 +552,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 19,
   },
+  emptyIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#F3E8FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  browseCoursesBtn: {
+    marginTop: 18,
+    backgroundColor: '#7c3aed',
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 24,
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  browseCoursesBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
 });
+

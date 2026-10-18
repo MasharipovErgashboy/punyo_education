@@ -567,7 +567,7 @@ export default function HomeScreen({ lang, onLogout, initialIsAuthenticated = fa
       ) : activeTestIntro ? (
         <TestIntroScreen test={activeTestIntro} onBack={() => setActiveTestIntro(null)} onStart={() => { setActiveTestRun(activeTestIntro); setActiveTestIntro(null); }} />
       ) : activeCourse ? (
-        <CourseDetailScreen course={activeCourse} onBack={() => setActiveCourse(null)} />
+        <CourseDetailScreen course={activeCourse} userData={userData} onBack={() => setActiveCourse(null)} />
       ) : activeCategory ? (
         <CategoryScreen 
           category={activeCategory} 
@@ -579,7 +579,8 @@ export default function HomeScreen({ lang, onLogout, initialIsAuthenticated = fa
       ) : (
         <>
           {activeTab === 'home' ? renderHomeContent() : null}
-          {activeTab === 'courses' ? <CoursesScreen lang={lang} onViewAll={(cat, catCourses) => { setActiveCategory(cat); setActiveCategoryCourses(catCourses || null); }} onViewCourse={(course) => setActiveCourse(course)} initialFilter={coursesInitialFilter} onSubScreenToggle={setIsSubScreenOpen} /> : null}
+          {activeTab === 'courses' ? <CoursesScreen lang={lang} userData={userData} onViewAll={(cat, catCourses) => { setActiveCategory(cat); setActiveCategoryCourses(catCourses || null); }} onViewCourse={(course) => setActiveCourse(course)} initialFilter={coursesInitialFilter} onSubScreenToggle={setIsSubScreenOpen} /> : null}
+
           {activeTab === 'tests' ? <TestsScreen lang={lang} onViewAll={(cat) => setActiveCategory(cat)} onViewTest={(course) => setActiveTestIntro(course)} /> : null}
           {activeTab === 'ai' ? <AiChatScreen onKeyboardToggle={setIsKeyboardVisible} /> : null}
           {activeTab === 'profile' ? <ProfileScreen userData={userData} onNavigateToMyCourses={() => {

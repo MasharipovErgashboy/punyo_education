@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,20 +7,49 @@ import ModuleLessonsScreen from './ModuleLessonsScreen';
 
 const { width } = Dimensions.get('window');
 
-const mockModules = [
-  { id: 1, title: 'IELTS Writing', videos: 36, tests: 36, hours: '7 soat' },
-  { id: 2, title: 'IELTS Reading', videos: 14, tests: 14, hours: '6 soat' },
-  { id: 3, title: 'IELTS Listening', videos: 26, tests: 26, hours: '10 soat' },
-  { id: 4, title: 'IELTS Speaking', videos: 20, tests: 20, hours: '4 soat' },
-];
-
-export default function CourseModulesScreen({ courseTitle = 'HTML & CSS', onBack }) {
+export default function CourseModulesScreen({ course, courseId, courseTitle = 'Kurs Modullari', onBack }) {
   const insets = useSafeAreaInsets();
   const [selectedModule, setSelectedModule] = useState(null);
+  const [modules, setModules] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const activeTitle = courseTitle || course?.title || course?.name || 'Kurs Modullari';
+  const activeCourseId = courseId || course?.id || course?.course_id;
+
+  const fetchModules = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (activeCourseId) params.append('course_id', activeCourseId);
+      if (activeTitle) params.append('course_title', activeTitle);
+
+      const res = await fetch(`http://192.168.0.107:8000/api/course-modules/?${params.toString()}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.modules)) {
+        setModules(data.modules.map(m => ({
+          id: m.id,
+          title: m.title,
+          videos: m.lessons_count || m.actual_lessons_count || 0,
+          tests: m.tests_count || m.actual_tests_count || 0,
+          hours: m.duration || '0 soat',
+          order_index: m.order_index
+        })));
+      }
+    } catch (err) {
+      console.log('Error fetching modules:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeCourseId, activeTitle]);
+
+  useEffect(() => {
+    fetchModules();
+  }, [fetchModules]);
 
   if (selectedModule) {
     return (
       <ModuleLessonsScreen 
+        module={selectedModule}
+        moduleId={selectedModule.id}
         moduleTitle={selectedModule.title} 
         onBack={() => setSelectedModule(null)} 
       />
@@ -53,45 +82,61 @@ export default function CourseModulesScreen({ courseTitle = 'HTML & CSS', onBack
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
         {/* Title */}
-        <Text style={styles.sectionTitle}>Modullar</Text>
+        <Text style={styles.sectionTitle}>{activeTitle}</Text>
 
         {/* Modules List */}
         <View style={styles.modulesList}>
-          {mockModules.map((item) => (
-            <TouchableOpacity 
-              key={item.id} 
-              style={styles.moduleCard}
-              activeOpacity={0.8}
-              onPress={() => setSelectedModule(item)}
-            >
-              <View style={styles.moduleContent}>
-                <Text style={styles.moduleTitle}>{item.title}</Text>
-                
-                {/* Meta Row */}
-                <View style={styles.metaRow}>
-                  <View style={styles.metaItem}>
-                    <Ionicons name="play-outline" size={14} color="#666" />
-                    <Text style={styles.metaText}>{item.videos}</Text>
-                  </View>
+          {isLoading ? (
+            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color="#7c3aed" />
+            </View>
+          ) : modules.length > 0 ? (
+            modules.map((item) => (
+              <TouchableOpacity 
+                key={item.id} 
+                style={styles.moduleCard}
+                activeOpacity={0.8}
+                onPress={() => setSelectedModule(item)}
+              >
+                <View style={styles.moduleContent}>
+                  <Text style={styles.moduleTitle}>{item.title}</Text>
+                  
+                  {/* Meta Row */}
+                  <View style={styles.metaRow}>
+                    <View style={styles.metaItem}>
+                      <Ionicons name="play-outline" size={14} color="#666" />
+                      <Text style={styles.metaText}>{item.videos}</Text>
+                    </View>
 
-                  <View style={styles.metaItem}>
-                    <Ionicons name="help-circle-outline" size={14} color="#666" />
-                    <Text style={styles.metaText}>{item.tests}</Text>
-                  </View>
+                    <View style={styles.metaItem}>
+                      <Ionicons name="help-circle-outline" size={14} color="#666" />
+                      <Text style={styles.metaText}>{item.tests}</Text>
+                    </View>
 
-                  <View style={styles.metaItem}>
-                    <Ionicons name="time-outline" size={14} color="#666" />
-                    <Text style={styles.metaText}>{item.hours}</Text>
+                    <View style={styles.metaItem}>
+                      <Ionicons name="time-outline" size={14} color="#666" />
+                      <Text style={styles.metaText}>{item.hours}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
 
-              {/* Right Medal Badge */}
-              <View style={styles.medalBadgeBg}>
-                <Ionicons name="ribbon-outline" size={24} color="#CBD5E1" />
-              </View>
-            </TouchableOpacity>
-          ))}
+                {/* Right Medal Badge */}
+                <View style={styles.medalBadgeBg}>
+                  <Ionicons name="ribbon-outline" size={24} color="#CBD5E1" />
+                </View>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={{ paddingVertical: 40, alignItems: 'center', paddingHorizontal: 20 }}>
+              <Ionicons name="layers-outline" size={48} color="#C4B5FD" />
+              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#34115C', marginTop: 12, textAlign: 'center' }}>
+                Hozircha modullar qo'shilmagan
+              </Text>
+              <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 6, textAlign: 'center', lineHeight: 18 }}>
+                Admin panelning Kurs ichki bo'limi orqali yangi modullar yaratilganda shu yerda ko'rinadi.
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Certificate Locked Card */}

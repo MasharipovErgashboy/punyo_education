@@ -142,3 +142,40 @@ class CourseCertificate(models.Model):
     def __str__(self):
         return f"{self.course.title} - {self.title}"
 
+
+class CourseApplication(models.Model):
+    STATUS_CHOICES = (
+        ('pending', 'Kutilmoqda'),
+        ('approved', 'Tasdiqlangan'),
+        ('rejected', 'Rad etilgan'),
+    )
+    user = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='course_applications')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='applications')
+    user_name = models.CharField(max_length=255)
+    user_phone = models.CharField(max_length=50)
+    user_email = models.CharField(max_length=255, blank=True, default='')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user_name} - {self.course.title} ({self.status})"
+
+
+class UserCourseEnrollment(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='enrolled_courses')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='enrolled_students')
+    enrolled_at = models.DateTimeField(auto_now_add=True)
+    progress_percent = models.IntegerField(default=0)
+
+    class Meta:
+        unique_together = ('user', 'course')
+        ordering = ['-enrolled_at']
+
+    def __str__(self):
+        return f"{self.user.name} -> {self.course.title}"
+
+

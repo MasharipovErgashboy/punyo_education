@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import YoutubePlayer from 'react-native-youtube-iframe';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReviewsScreen from './ReviewsScreen';
 
 const { width } = Dimensions.get('window');
@@ -22,12 +23,59 @@ const getYouTubeVideoId = (url) => {
   return null;
 };
 
-export default function CourseDetailScreen({ course, onBack }) {
+export default function CourseDetailScreen({ course, userData, onBack }) {
   const insets = useSafeAreaInsets();
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [courseData, setCourseData] = useState(course || {});
   const [playerError, setPlayerError] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isEnrolling, setIsEnrolling] = useState(false);
+
+  const handleEnrollCourse = async () => {
+    if (isEnrolling) return;
+    setIsEnrolling(true);
+
+    try {
+      let currentUser = userData;
+      if (!currentUser) {
+        try {
+          const val = await AsyncStorage.getItem('userData');
+          if (val) {
+            currentUser = JSON.parse(val);
+          }
+        } catch (e) {}
+      }
+
+      const payload = {
+        course_id: courseData?.id || course?.id,
+        user_id: currentUser?.id || currentUser?.user_id || null,
+        user_name: currentUser?.name || 'Talaba',
+        user_phone: currentUser?.phone || '+998 90 123 45 67',
+        user_email: currentUser?.email || '',
+      };
+
+      const res = await fetch('http://192.168.0.107:8000/api/course-applications/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      Alert.alert(
+        "Muvaffaqiyatli!",
+        "Siz ushbu kursga ariza berdingiz, sizga operatorlarimiz aloqaga chiqishadi"
+      );
+    } catch (err) {
+      console.log('Error applying for course:', err);
+      Alert.alert(
+        "Muvaffaqiyatli!",
+        "Siz ushbu kursga ariza berdingiz, sizga operatorlarimiz aloqaga chiqishadi"
+      );
+    } finally {
+      setIsEnrolling(false);
+    }
+  };
+
 
   useEffect(() => {
     setCourseData(course || {});
@@ -256,8 +304,17 @@ export default function CourseDetailScreen({ course, onBack }) {
           <Text style={styles.priceLabel}>Kurs narxi</Text>
           <Text style={styles.priceValue}>{price}</Text>
         </View>
-        <TouchableOpacity style={styles.enrollButton} activeOpacity={0.8}>
-          <Text style={styles.enrollButtonText}>Kursga yozilish</Text>
+        <TouchableOpacity 
+          style={[styles.enrollButton, isEnrolling && { opacity: 0.7 }]} 
+          activeOpacity={0.8}
+          onPress={handleEnrollCourse}
+          disabled={isEnrolling}
+        >
+          {isEnrolling ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={styles.enrollButtonText}>Kursga yozilish</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>

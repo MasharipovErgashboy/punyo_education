@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,30 +7,76 @@ import LessonDetailScreen from './LessonDetailScreen';
 
 const { width } = Dimensions.get('window');
 
-const mockLessons = [
-  { id: 1, type: 'video', title: 'Dars 1 IELTS Introduction', duration: '18 daqiqa', isLocked: false },
-  { id: 2, type: 'test', title: 'Test 1 IELTS Introduction', isLocked: true },
-  { id: 3, type: 'video', title: 'Dars 2 IELTS Writing', duration: '17 daqiqa', isLocked: true },
-  { id: 4, type: 'test', title: 'Test 2 IELTS Writing', isLocked: true },
-  { id: 5, type: 'video', title: 'Dars 3 IELTS Writing - 2', duration: '13 daqiqa', isLocked: true },
-  { id: 6, type: 'test', title: 'Test 3 IELTS Writing - 2', isLocked: true },
-  { id: 7, type: 'video', title: 'Dars 4 IELTS Writing. Task 1', duration: '8 daqiqa', isLocked: true },
-  { id: 8, type: 'test', title: 'Test 4 IELTS Writing. Task 1', isLocked: true },
-];
-
-export default function ModuleLessonsScreen({ moduleTitle = 'IELTS Writing', onBack }) {
+export default function ModuleLessonsScreen({ module, moduleId, moduleTitle = 'Darslar', onBack }) {
   const insets = useSafeAreaInsets();
   const [activeLesson, setActiveLesson] = useState(null);
+  const [lessonsList, setLessonsList] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const activeModuleId = moduleId || module?.id;
+  const activeTitle = moduleTitle || module?.title || 'Darslar';
+
+  useEffect(() => {
+    if (!activeModuleId) {
+      setIsLoading(false);
+      return;
+    }
+
+    Promise.all([
+      fetch(`http://192.168.0.107:8000/api/course-lessons/?module_id=${activeModuleId}`).then(r => r.json()).catch(() => ({ lessons: [] })),
+      fetch(`http://192.168.0.107:8000/api/course-tests/?module_id=${activeModuleId}`).then(r => r.json()).catch(() => ({ tests: [] })),
+    ]).then(([lessonsData, testsData]) => {
+      const items = [];
+      if (Array.isArray(lessonsData.lessons)) {
+        lessonsData.lessons.forEach(l => {
+          items.push({
+            id: `l_${l.id}`,
+            realId: l.id,
+            type: 'video',
+            title: l.title,
+            duration: l.duration,
+            youtube_url: l.youtube_url,
+            description: l.description,
+            order_index: l.order_index,
+            isLocked: false,
+          });
+        });
+      }
+      if (Array.isArray(testsData.tests)) {
+        testsData.tests.forEach(t => {
+          items.push({
+            id: `t_${t.id}`,
+            realId: t.id,
+            type: 'test',
+            title: t.title,
+            test_type: t.test_type,
+            order_index: t.order_index,
+            isLocked: false,
+          });
+        });
+      }
+
+      items.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+      setLessonsList(items);
+      setIsLoading(false);
+    });
+  }, [activeModuleId]);
 
   if (activeLesson) {
     return (
       <LessonDetailScreen 
+        lesson={activeLesson}
         lessonTitle={activeLesson.title} 
         duration={activeLesson.duration} 
+        youtubeUrl={activeLesson.youtube_url}
         onBack={() => setActiveLesson(null)} 
       />
     );
   }
+
+  const videoCount = lessonsList.filter(i => i.type === 'video').length;
+  const testCount = lessonsList.filter(i => i.type === 'test').length;
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
@@ -60,59 +106,76 @@ export default function ModuleLessonsScreen({ moduleTitle = 'IELTS Writing', onB
       <View style={styles.sheetContainer}>
         {/* Sheet Header */}
         <View style={styles.sheetHeader}>
-          <Text style={styles.sheetTitle}>Darslar</Text>
+          <Text style={styles.sheetTitle}>{activeTitle}</Text>
           <View style={styles.sheetHeaderMeta}>
             <View style={styles.metaBadge}>
               <Ionicons name="play-outline" size={14} color="#10B981" />
-              <Text style={styles.metaBadgeText}>0 / 36</Text>
+              <Text style={styles.metaBadgeText}>{videoCount} ta video</Text>
             </View>
             <View style={[styles.metaBadge, { marginLeft: 12 }]}>
               <Ionicons name="help-circle-outline" size={14} color="#10B981" />
-              <Text style={styles.metaBadgeText}>0 / 36</Text>
+              <Text style={styles.metaBadgeText}>{testCount} ta test</Text>
             </View>
           </View>
         </View>
 
         {/* Lessons List */}
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          {mockLessons.map((item) => (
-            <TouchableOpacity 
-              key={item.id} 
-              style={[styles.lessonCard, item.isLocked && styles.lessonCardLocked]}
-              activeOpacity={0.8}
-              onPress={() => setActiveLesson(item)}
-            >
-              {/* Left Icon */}
-              <View style={styles.lessonIconBg}>
-                <Ionicons 
-                  name={item.type === 'video' ? "play" : "help-circle"} 
-                  size={18} 
-                  color="#7c3aed" 
-                />
-              </View>
+          {isLoading ? (
+            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color="#7c3aed" />
+            </View>
+          ) : lessonsList.length > 0 ? (
+            lessonsList.map((item) => (
+              <TouchableOpacity 
+                key={item.id} 
+                style={[styles.lessonCard, item.isLocked && styles.lessonCardLocked]}
+                activeOpacity={0.8}
+                onPress={() => setActiveLesson(item)}
+              >
+                {/* Left Icon */}
+                <View style={styles.lessonIconBg}>
+                  <Ionicons 
+                    name={item.type === 'video' ? "play" : "help-circle"} 
+                    size={18} 
+                    color="#7c3aed" 
+                  />
+                </View>
 
-              {/* Title & Duration */}
-              <View style={styles.lessonInfo}>
-                <Text style={styles.lessonTitle}>{item.title}</Text>
-                {item.duration && (
-                  <Text style={styles.lessonDuration}>{item.duration}</Text>
+                {/* Title & Duration */}
+                <View style={styles.lessonInfo}>
+                  <Text style={styles.lessonTitle}>{item.title}</Text>
+                  {item.duration && (
+                    <Text style={styles.lessonDuration}>{item.duration}</Text>
+                  )}
+                </View>
+
+                {/* Right Status (Open circle or Lock) */}
+                {item.isLocked ? (
+                  <Ionicons name="lock-closed" size={18} color="#7c3aed" />
+                ) : (
+                  <View style={styles.openCircle} />
                 )}
-              </View>
-
-              {/* Right Status (Open circle or Lock) */}
-              {item.isLocked ? (
-                <Ionicons name="lock-closed" size={18} color="#7c3aed" />
-              ) : (
-                <View style={styles.openCircle} />
-              )}
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={{ paddingVertical: 40, alignItems: 'center', paddingHorizontal: 20 }}>
+              <Ionicons name="film-outline" size={44} color="#C4B5FD" />
+              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#34115C', marginTop: 12, textAlign: 'center' }}>
+                Hozircha darsliklar mavjud emas
+              </Text>
+              <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 6, textAlign: 'center' }}>
+                Admin panelning Kurs ichki bo'limi orqali video darsliklar va testlar qo'shilganda shu yerda chiqadi.
+              </Text>
+            </View>
+          )}
 
           <View style={{ height: 40 }} />
         </ScrollView>
       </View>
     </View>
   );
+
 }
 
 const styles = StyleSheet.create({
