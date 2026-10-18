@@ -1,33 +1,92 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions, Platform, Linking, Alert } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions, Platform, Linking, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { WebView } from 'react-native-webview';
 import ReviewsScreen from './ReviewsScreen';
 
 const { width } = Dimensions.get('window');
 
+const getYouTubeVideoId = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/)([^"&?\/\s]{11})/i;
+  const match = trimmed.match(regExp);
+  if (match && match[1]) {
+    return match[1];
+  }
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
+    return trimmed;
+  }
+  return null;
+};
+
 export default function CourseDetailScreen({ course, onBack }) {
   const insets = useSafeAreaInsets();
   const [showAllReviews, setShowAllReviews] = useState(false);
+  const [courseData, setCourseData] = useState(course || {});
+
+  useEffect(() => {
+    setCourseData(course || {});
+    if (course?.id) {
+      fetch(`http://192.168.0.107:8000/api/courses/${course.id}/`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.course) {
+            setCourseData(data.course);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [course]);
 
   // Dynamic course details
-  const title = course?.name || course?.title || 'Kurs Ma\'lumotlari';
-  const rating = course?.rating || '4.8';
-  const description = course?.description || "Ushbu darslik orqali siz noldan boshlab yuqori darajagacha bilimlarga ega bo'lasiz. Har bir dars amaliy mashg'ulotlar va uy vazifalari bilan mustahkamlangan. O'z sohangizning yetuk mutaxassisi bo'lish uchun bugunoq boshlang!";
-  const studentsCount = course?.students_count || "12k O'quvchi";
-  const duration = course?.duration || "24 Soat video";
-  const certText = course?.has_certificate !== undefined ? (course.has_certificate ? "Sertifikat bor" : "Sertifikatsiz") : "Sertifikat";
-  const price = course?.price || "250,000 UZS/oy";
+  const title = courseData?.name || courseData?.title || 'Kurs Ma\'lumotlari';
+  const rating = courseData?.rating || '4.8';
+  const description = courseData?.description || "Ushbu darslik orqali siz noldan boshlab yuqori darajagacha bilimlarga ega bo'lasiz. Har bir dars amaliy mashg'ulotlar va uy vazifalari bilan mustahkamlangan. O'z sohangizning yetuk mutaxassisi bo'lish uchun bugunoq boshlang!";
+  const studentsCount = courseData?.students_count || "12k O'quvchi";
+  const duration = courseData?.duration || "24 Soat video";
+  const certText = courseData?.has_certificate !== undefined ? (courseData.has_certificate ? "Sertifikat bor" : "Sertifikatsiz") : "Sertifikat";
+  const price = courseData?.price || "250,000 UZS/oy";
 
-  const teachersList = (course?.teachers && course.teachers.length > 0) ? course.teachers : [
+  const teachersList = (courseData?.teachers && courseData.teachers.length > 0) ? courseData.teachers : [
     { id: 1, name: 'Ali Valiyev', role: 'Senior Dasturchi', avatar_url: null },
     { id: 2, name: 'Sardor Omonov', role: 'Backend Mentor', avatar_url: null }
   ];
 
+  const youtubeId = useMemo(() => {
+    return getYouTubeVideoId(courseData?.intro_video_url);
+  }, [courseData?.intro_video_url]);
+
+  const embedHtml = useMemo(() => {
+    if (!youtubeId) return '';
+    return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; background-color: #000; overflow: hidden; }
+      .wrapper { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+      iframe { width: 100%; height: 100%; border: none; }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <iframe
+        src="https://www.youtube.com/embed/${youtubeId}?playsinline=1&modestbranding=1&rel=0&controls=1"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowfullscreen
+      ></iframe>
+    </div>
+  </body>
+</html>`;
+  }, [youtubeId]);
+
   const handlePlayVideo = () => {
-    if (course?.intro_video_url) {
-      Linking.openURL(course.intro_video_url).catch(() => {
+    if (courseData?.intro_video_url) {
+      Linking.openURL(courseData.intro_video_url).catch(() => {
         Alert.alert("Xatolik", "Video havolasini ochishda muammo bo'ldi");
       });
     } else {
@@ -54,18 +113,44 @@ export default function CourseDetailScreen({ course, onBack }) {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
-        {/* Video Placeholder */}
+        {/* Video Container (YouTube Player or Cover Image) */}
         <View style={styles.videoContainer}>
-          <Image 
-            source={course?.icon_url ? { uri: course.icon_url, cache: 'force-cache' } : (course?.icon ? { uri: course.icon, cache: 'force-cache' } : require('./assets/video_bg.png'))} 
-            style={styles.videoImage} 
-            fadeDuration={0}
-          />
-          <View style={styles.playButtonOverlay}>
-            <TouchableOpacity style={styles.playButton} activeOpacity={0.8} onPress={handlePlayVideo}>
-              <Ionicons name="play" size={32} color="#FFF" style={{ marginLeft: 4 }} />
-            </TouchableOpacity>
-          </View>
+          {youtubeId ? (
+            <WebView
+              style={styles.webView}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              allowsFullscreenVideo={true}
+              allowsInlineMediaPlayback={true}
+              mediaPlaybackRequiresUserAction={false}
+              originWhitelist={['*']}
+              source={{
+                html: embedHtml,
+                baseUrl: 'https://www.youtube.com'
+              }}
+              scrollEnabled={false}
+              bounces={false}
+              startInLoadingState={true}
+              renderLoading={() => (
+                <View style={styles.videoLoadingContainer}>
+                  <ActivityIndicator size="large" color="#7c3aed" />
+                </View>
+              )}
+            />
+          ) : (
+            <View style={{ flex: 1 }}>
+              <Image 
+                source={courseData?.icon_url ? { uri: courseData.icon_url, cache: 'force-cache' } : (courseData?.icon ? { uri: courseData.icon, cache: 'force-cache' } : require('./assets/video_bg.png'))} 
+                style={styles.videoImage} 
+                fadeDuration={0}
+              />
+              <View style={styles.playButtonOverlay}>
+                <TouchableOpacity style={styles.playButton} activeOpacity={0.8} onPress={handlePlayVideo}>
+                  <Ionicons name="play" size={32} color="#FFF" style={{ marginLeft: 4 }} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Main Info */}
@@ -77,6 +162,19 @@ export default function CourseDetailScreen({ course, onBack }) {
               <Text style={styles.ratingText}>{rating}</Text>
             </View>
           </View>
+
+          {courseData?.intro_video_url ? (
+            <TouchableOpacity 
+              style={styles.openInAppBadge}
+              activeOpacity={0.7}
+              onPress={handlePlayVideo}
+            >
+              <Ionicons name="logo-youtube" size={16} color="#FF0000" />
+              <Text style={styles.openInAppText}>YouTube ilovasida ochish</Text>
+              <Ionicons name="open-outline" size={13} color="#64748B" />
+            </TouchableOpacity>
+          ) : null}
+
           <Text style={styles.courseDescription}>
             {description}
           </Text>
@@ -221,9 +319,41 @@ const styles = StyleSheet.create({
   },
   videoContainer: {
     width: '100%',
-    height: 220,
-    backgroundColor: '#EEE',
+    height: 225,
+    backgroundColor: '#000000',
     position: 'relative',
+    overflow: 'hidden',
+  },
+  webView: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#000000',
+  },
+  videoLoadingContainer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  openInAppBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  openInAppText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#334155',
   },
   videoImage: {
     width: '100%',
