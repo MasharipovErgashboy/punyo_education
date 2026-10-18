@@ -22,8 +22,10 @@ import {
   GraduationCap,
   ChevronDown,
   ChevronRight,
+  DollarSign,
   Layers,
   FileText,
+  FileQuestion,
   Camera,
   Eye,
   Play,
@@ -989,13 +991,27 @@ export default function Dashboard({ user, onLogout }) {
             <div className="nav-group">
               <li 
                 className={`nav-item ${activeTab === 'categories' || activeTab === 'courses' ? 'active-parent' : ''}`}
-                onClick={() => setIsCoursesMenuOpen(!isCoursesMenuOpen)}
-                style={{ justifyContent: 'space-between', userSelect: 'none' }}
+                onClick={() => {
+                  setIsCoursesMenuOpen(true);
+                  setActiveTab('courses');
+                  fetchCourses();
+                  fetchCategories();
+                }}
+                style={{ justifyContent: 'space-between', userSelect: 'none', cursor: 'pointer' }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <BookOpen size={18} /> Kurslar Boshqaruvi
                 </div>
-                {isCoursesMenuOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsCoursesMenuOpen(!isCoursesMenuOpen);
+                  }}
+                  style={{ padding: '2px 6px', display: 'flex', alignItems: 'center' }}
+                  title="Menyuni ochish/yopish"
+                >
+                  {isCoursesMenuOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                </div>
               </li>
               {isCoursesMenuOpen && (
                 <div className="nav-sub-menu">
@@ -1009,14 +1025,25 @@ export default function Dashboard({ user, onLogout }) {
                     <FolderTree size={15} /> Kategoriya
                   </div>
                   <div 
-                    className={`nav-sub-item ${activeTab === 'courses' ? 'active' : ''}`}
+                    className={`nav-sub-item ${activeTab === 'courses' && coursesTab === 'sales' ? 'active' : ''}`}
                     onClick={() => {
                       setActiveTab('courses');
+                      setCoursesTab('sales');
                       fetchCourses();
                       fetchCategories();
                     }}
                   >
-                    <GraduationCap size={15} /> Kurslar
+                    <GraduationCap size={15} /> Kurslar (Sotuv)
+                  </div>
+                  <div 
+                    className={`nav-sub-item ${activeTab === 'courses' && coursesTab === 'internal' ? 'active' : ''}`}
+                    onClick={() => {
+                      setActiveTab('courses');
+                      setCoursesTab('internal');
+                      fetchCourses();
+                    }}
+                  >
+                    <Layers size={15} /> Kurs ichki bo'limi
                   </div>
                 </div>
               )}
@@ -1544,7 +1571,6 @@ export default function Dashboard({ user, onLogout }) {
                 onClick={() => setCoursesTab('internal')}
               >
                 <Layers size={16} /> Kurs ichki bo'limi
-                <span className="course-subtab-badge">Tez kunda</span>
               </button>
               <button 
                 className={`course-subtab-btn ${coursesTab === 'applications' ? 'active' : ''}`}
