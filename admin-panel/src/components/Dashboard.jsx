@@ -24,7 +24,8 @@ import {
   ChevronRight,
   DollarSign,
   Layers,
-  FileText
+  FileText,
+  Camera
 } from 'lucide-react';
 import punyoLogo from '../assets/punyo_logo.png';
 import emptyAdsImage from '../assets/empty_ads.png';
@@ -246,7 +247,7 @@ export default function Dashboard({ user, onLogout }) {
       icon_file: null,
       current_icon_url: null,
       teachers: [
-        { name: '', role: '', avatar_file: null }
+        { name: '', role: '', avatar_file: null, preview_url: null }
       ]
     });
     setIsCourseModalOpen(true);
@@ -268,12 +269,13 @@ export default function Dashboard({ user, onLogout }) {
       current_icon_url: c.icon_url || c.icon || null,
       teachers: (c.teachers && c.teachers.length > 0)
         ? c.teachers.map(t => ({
-            name: t.name,
-            role: t.role,
+            name: t.name || '',
+            role: t.role || '',
             avatar_file: null,
+            preview_url: null,
             current_avatar: t.avatar_url || t.avatar || null
           }))
-        : [{ name: '', role: '', avatar_file: null }]
+        : [{ name: '', role: '', avatar_file: null, preview_url: null }]
     });
     setIsCourseModalOpen(true);
   };
@@ -281,7 +283,7 @@ export default function Dashboard({ user, onLogout }) {
   const handleAddTeacherField = () => {
     setCourseForm(prev => ({
       ...prev,
-      teachers: [...prev.teachers, { name: '', role: '', avatar_file: null }]
+      teachers: [...prev.teachers, { name: '', role: '', avatar_file: null, preview_url: null }]
     }));
   };
 
@@ -295,7 +297,16 @@ export default function Dashboard({ user, onLogout }) {
   const handleTeacherChange = (index, field, value) => {
     setCourseForm(prev => {
       const updated = [...prev.teachers];
-      updated[index] = { ...updated[index], [field]: value };
+      if (field === 'avatar_file' && value) {
+        try {
+          const previewUrl = URL.createObjectURL(value);
+          updated[index] = { ...updated[index], avatar_file: value, preview_url: previewUrl };
+        } catch (e) {
+          updated[index] = { ...updated[index], avatar_file: value };
+        }
+      } else {
+        updated[index] = { ...updated[index], [field]: value };
+      }
       return { ...prev, teachers: updated };
     });
   };
@@ -1533,71 +1544,128 @@ export default function Dashboard({ user, onLogout }) {
               </div>
 
               {/* 10. O'qituvchilar */}
-              <div style={{ background: '#F8FAFC', padding: 16, borderRadius: 12, border: '1px solid #E2E8F0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <label style={{ fontSize: 14, fontWeight: 700, color: '#1E293B' }}>10. O'qituvchilar Ro'yxati</label>
+              <div className="teachers-section-container">
+                <div className="teachers-section-header">
+                  <div className="teachers-title-wrap">
+                    <div className="section-number-icon">10</div>
+                    <div>
+                      <h4 className="teachers-section-title">O'qituvchilar Ro'yxati</h4>
+                      <p className="teachers-section-sub">Kursni o'tadigan murabbiylar va mutaxassislar</p>
+                    </div>
+                    <span className="teachers-count-pill">
+                      {courseForm.teachers.length} ta o'qituvchi
+                    </span>
+                  </div>
                   <button 
                     type="button" 
                     onClick={handleAddTeacherField}
-                    style={{ background: '#EDE9FE', color: '#7C3AED', border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                    className="btn-add-teacher"
                   >
-                    <Plus size={14} /> O'qituvchi qo'shish
+                    <Plus size={16} />
+                    <span>O'qituvchi qo'shish</span>
                   </button>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {courseForm.teachers.map((t, idx) => (
-                    <div key={idx} className="teacher-item-card">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#64748B' }}>O'qituvchi #{idx + 1}</span>
-                        {courseForm.teachers.length > 1 && (
-                          <button 
-                            type="button" 
-                            onClick={() => handleRemoveTeacherField(idx)}
-                            style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}
-                          >
-                            <Trash2 size={13} /> O'chirish
-                          </button>
-                        )}
-                      </div>
+                <div className="teacher-cards-list">
+                  {courseForm.teachers.map((t, idx) => {
+                    const avatarSrc = t.preview_url || t.current_avatar;
+                    return (
+                      <div key={idx} className="teacher-card-premium">
+                        <div className="teacher-card-topbar">
+                          <div className="teacher-badge">
+                            <GraduationCap size={15} color="#7C3AED" />
+                            <span>O'qituvchi #{idx + 1}</span>
+                          </div>
+                          {courseForm.teachers.length > 1 && (
+                            <button 
+                              type="button" 
+                              onClick={() => handleRemoveTeacherField(idx)}
+                              className="teacher-delete-btn"
+                              title="O'qituvchini o'chirish"
+                            >
+                              <Trash2 size={13} />
+                              <span>O'chirish</span>
+                            </button>
+                          )}
+                        </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                        <input 
-                          type="text" 
-                          className="modern-input" 
-                          placeholder="Ism Familiya (masalan: John Doe)"
-                          value={t.name}
-                          onChange={(e) => handleTeacherChange(idx, 'name', e.target.value)}
-                          required
-                        />
-                        <input 
-                          type="text" 
-                          className="modern-input" 
-                          placeholder="Yo'nalishi (masalan: Senior IELTS Tutor)"
-                          value={t.role}
-                          onChange={(e) => handleTeacherChange(idx, 'role', e.target.value)}
-                          required
-                        />
-                      </div>
+                        <div className="teacher-card-body">
+                          {/* Avatar Uploader */}
+                          <div className="teacher-avatar-uploader">
+                            <input 
+                              type="file" 
+                              id={`teacher-avatar-file-${idx}`}
+                              accept="image/*"
+                              style={{ display: 'none' }}
+                              onChange={(e) => handleTeacherChange(idx, 'avatar_file', e.target.files[0])}
+                            />
+                            <label htmlFor={`teacher-avatar-file-${idx}`} className="teacher-avatar-label" title="Rasmni o'zgartirish uchun bosing">
+                              {avatarSrc ? (
+                                <div className="teacher-avatar-img-container">
+                                  <img src={avatarSrc} alt={t.name || "Teacher"} className="teacher-avatar-img" />
+                                  <div className="teacher-avatar-hover-overlay">
+                                    <Camera size={18} color="#FFFFFF" />
+                                    <span>O'zgartirish</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="teacher-avatar-placeholder">
+                                  <div className="teacher-avatar-icon-circle">
+                                    <Camera size={17} color="#7C3AED" />
+                                  </div>
+                                  <span>Rasm tanlash</span>
+                                </div>
+                              )}
+                            </label>
+                          </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        {t.current_avatar && !t.avatar_file && (
-                          <img src={t.current_avatar} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
-                        )}
-                        <div style={{ flex: 1 }}>
-                          <label style={{ fontSize: 11, color: '#64748B', display: 'block', marginBottom: 4 }}>
-                            O'qituvchi rasmi {t.current_avatar ? "(Mavjud rasm saqlanadi)" : ""}
-                          </label>
-                          <input 
-                            type="file" 
-                            accept="image/*"
-                            onChange={(e) => handleTeacherChange(idx, 'avatar_file', e.target.files[0])}
-                            style={{ fontSize: 12 }}
-                          />
+                          {/* Inputs and Meta */}
+                          <div className="teacher-inputs-wrap">
+                            <div className="teacher-input-row">
+                              <div className="teacher-field-group">
+                                <label className="teacher-field-label">Ism Familiya *</label>
+                                <input 
+                                  type="text" 
+                                  className="modern-input teacher-input" 
+                                  placeholder="Masalan: Ali Valiyev"
+                                  value={t.name}
+                                  onChange={(e) => handleTeacherChange(idx, 'name', e.target.value)}
+                                  required
+                                />
+                              </div>
+                              <div className="teacher-field-group">
+                                <label className="teacher-field-label">Yo'nalishi / Mutaxassisligi *</label>
+                                <input 
+                                  type="text" 
+                                  className="modern-input teacher-input" 
+                                  placeholder="Masalan: Senior IELTS Instructor"
+                                  value={t.role}
+                                  onChange={(e) => handleTeacherChange(idx, 'role', e.target.value)}
+                                  required
+                                />
+                              </div>
+                            </div>
+
+                            <div className="teacher-avatar-meta-bar">
+                              {t.avatar_file ? (
+                                <span className="teacher-meta-tag tag-new">
+                                  <CheckCircle size={12} /> Yangi rasm: {t.avatar_file.name}
+                                </span>
+                              ) : t.current_avatar ? (
+                                <span className="teacher-meta-tag tag-saved">
+                                  <CheckCircle size={12} /> Mavjud rasm saqlanadi (o'zgartirish uchun bosing)
+                                </span>
+                              ) : (
+                                <span className="teacher-meta-tag tag-optional">
+                                  📷 Rasm yuklash (ixtiyoriy, kvadrat tavsiya etiladi)
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
