@@ -177,6 +177,16 @@ export default function CoursesScreen({ lang, userData, onViewAll, onViewCourse,
     }
   }, [selectedCourseModule]);
 
+  // If user is viewing a course that got unenrolled by admin in real-time, automatically exit
+  useEffect(() => {
+    if (selectedCourseModule) {
+      const activeId = Number(selectedCourseModule.id || selectedCourseModule.course_id);
+      if (activeId && !myCourseIds.has(activeId)) {
+        setSelectedCourseModule(null);
+      }
+    }
+  }, [myCourseIds, selectedCourseModule]);
+
   const handleViewCourse = useCallback((c) => {
     if (onViewCourse) onViewCourse(c);
   }, [onViewCourse]);

@@ -422,6 +422,7 @@ export default function Dashboard({ user, onLogout }) {
           alert("O'quvchi kursdan muvaffaqiyatli chiqarildi!");
           fetchEnrolledStudents();
           fetchCourses();
+          fetchApplications();
           break;
         }
       } catch (e) {}

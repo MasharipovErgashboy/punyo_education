@@ -1430,6 +1430,22 @@ def course_applications_view(request, application_id=None):
             app.course.students_count = str(enrollment_count)
             app.course.save(update_fields=['students_count'])
 
+        elif new_status == 'rejected':
+            # If rejected, unenroll user from course if they were enrolled
+            if app.course:
+                user = app.user
+                if not user and app.user_email:
+                    user = CustomUser.objects.filter(email__iexact=app.user_email).first()
+                if not user and app.user_phone and app.user_phone != 'Noma\'lum':
+                    user = CustomUser.objects.filter(phone=app.user_phone).first()
+                if user:
+                    UserCourseEnrollment.objects.filter(user=user, course=app.course).delete()
+                    user.courses_count = UserCourseEnrollment.objects.filter(user=user).count()
+                    user.save(update_fields=['courses_count'])
+                enrollment_count = UserCourseEnrollment.objects.filter(course=app.course).count()
+                app.course.students_count = str(enrollment_count)
+                app.course.save(update_fields=['students_count'])
+
         return Response({
             'success': True,
             'message': 'Ariza holati muvaffaqiyatli yangilandi!',
@@ -1630,6 +1646,17 @@ def course_enrolled_students_view(request, enrollment_id=None):
         course = enr.course
         user = enr.user
         enr.delete()
+
+        # Remove any corresponding application records for this user and course
+        if course:
+            app_qs = CourseApplication.objects.filter(course=course)
+            if user:
+                apps_to_del = app_qs.filter(Q(user=user) | Q(user_id=user.id))
+                if user.phone and user.phone != 'Noma\'lum':
+                    apps_to_del = apps_to_del | app_qs.filter(user_phone=user.phone)
+                if user.email:
+                    apps_to_del = apps_to_del | app_qs.filter(user_email__iexact=user.email)
+                apps_to_del.delete()
 
         # Update counters
         if course:
