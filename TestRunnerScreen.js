@@ -3,9 +3,131 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions, Platf
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 import TestResultScreen from './TestResultScreen';
 
 const { width } = Dimensions.get('window');
+
+function formatAudioUrl(url) {
+  if (!url) return null;
+  let formatted = String(url).trim();
+  if (formatted.startsWith('/')) {
+    formatted = `http://192.168.0.107:8000${formatted}`;
+  } else if (formatted.includes('localhost')) {
+    formatted = formatted.replace('localhost', '192.168.0.107');
+  } else if (formatted.includes('127.0.0.1')) {
+    formatted = formatted.replace('127.0.0.1', '192.168.0.107');
+  }
+  return formatted;
+}
+
+function formatAudioTime(seconds) {
+  if (!seconds || isNaN(seconds) || seconds < 0) return '00:00';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+function ListeningAudioPlayer({ audioUrl, hasPlayed, onPlayOnce }) {
+  const formattedUrl = useMemo(() => formatAudioUrl(audioUrl), [audioUrl]);
+  const player = useAudioPlayer(formattedUrl || null);
+  const status = useAudioPlayerStatus(player);
+  const [localStarted, setLocalStarted] = useState(false);
+
+  useEffect(() => {
+    try {
+      setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      try {
+        if (player && player.playing) {
+          player.pause();
+        }
+      } catch (e) {}
+    };
+  }, [player]);
+
+  const isPlayedOrStarted = hasPlayed || localStarted;
+  const isPlaying = Boolean(status?.playing);
+  const currentTime = status?.currentTime || 0;
+  const duration = status?.duration || 0;
+
+  const handlePlay = () => {
+    if (isPlayedOrStarted) return;
+    setLocalStarted(true);
+    if (onPlayOnce) {
+      onPlayOnce();
+    }
+    try {
+      if (player) {
+        player.play();
+      }
+    } catch (err) {
+      console.warn('Audio play error:', err);
+    }
+  };
+
+  return (
+    <View style={styles.listeningBox}>
+      <View style={styles.listeningHeaderRow}>
+        <View style={styles.listeningTitleRow}>
+          <Ionicons name="headset" size={20} color="#EA580C" style={{ marginRight: 8 }} />
+          <Text style={styles.listeningTitle}>Tinglash testi</Text>
+        </View>
+
+        {!formattedUrl ? (
+          <View style={styles.listeningPlayedBadge}>
+            <Text style={styles.listeningPlayedText}>Audio mavjud emas</Text>
+          </View>
+        ) : !isPlayedOrStarted ? (
+          <TouchableOpacity 
+            style={styles.listeningPlayBtn} 
+            activeOpacity={0.8}
+            onPress={handlePlay}
+          >
+            <Ionicons name="play" size={15} color="#FFFFFF" style={{ marginRight: 5 }} />
+            <Text style={styles.listeningPlayBtnText}>Play</Text>
+          </TouchableOpacity>
+        ) : isPlaying ? (
+          <View style={styles.listeningPlayingBadge}>
+            <Ionicons name="volume-high" size={15} color="#EA580C" style={{ marginRight: 5 }} />
+            <Text style={styles.listeningPlayingText}>Tinglanmoqda...</Text>
+          </View>
+        ) : (
+          <View style={styles.listeningPlayedBadge}>
+            <Ionicons name="checkmark-circle" size={15} color="#64748B" style={{ marginRight: 5 }} />
+            <Text style={styles.listeningPlayedText}>Tinglandi</Text>
+          </View>
+        )}
+      </View>
+
+      {isPlayedOrStarted && formattedUrl ? (
+        <View style={styles.listeningProgressContainer}>
+          <View style={styles.listeningProgressBarBg}>
+            <View 
+              style={[
+                styles.listeningProgressBarFill, 
+                { width: `${duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : (isPlaying ? 50 : 100)}%` }
+              ]} 
+            />
+          </View>
+          <View style={styles.listeningTimeRow}>
+            <Text style={styles.listeningTimeText}>{formatAudioTime(currentTime)}</Text>
+            <Text style={styles.listeningTimeText}>
+              {duration > 0 ? formatAudioTime(duration) : (isPlaying ? '...' : formatAudioTime(currentTime))}
+            </Text>
+          </View>
+        </View>
+      ) : formattedUrl ? (
+        <Text style={styles.listeningOneTimeHint}>Eslatma: Play tugmasini faqat 1 marta bosish mumkin</Text>
+      ) : null}
+    </View>
+  );
+}
+
 
 // Generate 50 mock questions
 const TOTAL_QUESTIONS = 50;
@@ -66,6 +188,7 @@ export default function TestRunnerScreen({ testTitle, testData, onBack, onComple
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState({});
   const [bookmarks, setBookmarks] = useState([]);
+  const [playedAudios, setPlayedAudios] = useState({});
   const [timeLeft, setTimeLeft] = useState(initialSeconds);
   const [isPaused, setIsPaused] = useState(false);
   const [isGridExpanded, setIsGridExpanded] = useState(false);
@@ -272,11 +395,19 @@ export default function TestRunnerScreen({ testTitle, testData, onBack, onComple
             </View>
           ) : null}
 
-          {question.audioUrl ? (
-            <View style={{ backgroundColor: '#FFF7ED', borderRadius: 12, padding: 10, borderWidth: 1, borderColor: '#FED7AA', marginBottom: 12, flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name="headset" size={18} color="#EA580C" style={{ marginRight: 8 }} />
-              <Text style={{ fontSize: 13, fontWeight: '600', color: '#9A3412' }}>Audio fayl biriktirilgan (Tinglash testi)</Text>
-            </View>
+          {(question.audioUrl || question.test_type === 'listening' || testData?.test_type === 'listening') ? (
+            <ListeningAudioPlayer 
+              key={`listening_${question.id}_${currentIdx}`}
+              audioUrl={question.audioUrl || testData?.audio_url}
+              hasPlayed={Boolean(playedAudios[question.id] || playedAudios[currentIdx])}
+              onPlayOnce={() => {
+                setPlayedAudios(prev => ({
+                  ...prev,
+                  [question.id]: true,
+                  [currentIdx]: true,
+                }));
+              }}
+            />
           ) : null}
 
           <Text style={styles.questionText}>{question.question}</Text>
@@ -771,5 +902,109 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 11,
     color: '#666',
+  },
+  listeningBox: {
+    backgroundColor: '#FFF7ED',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#FED7AA',
+    marginBottom: 16,
+  },
+  listeningHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  listeningTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  listeningTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#9A3412',
+  },
+  listeningPlayBtn: {
+    backgroundColor: '#EA580C',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    shadowColor: '#EA580C',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  listeningPlayBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  listeningPlayingBadge: {
+    backgroundColor: '#FFEDD5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+  },
+  listeningPlayingText: {
+    color: '#EA580C',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  listeningPlayedBadge: {
+    backgroundColor: '#F1F5F9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  listeningPlayedText: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  listeningProgressContainer: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#FED7AA',
+  },
+  listeningProgressBarBg: {
+    height: 5,
+    backgroundColor: '#FED7AA',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  listeningProgressBarFill: {
+    height: '100%',
+    backgroundColor: '#EA580C',
+    borderRadius: 3,
+  },
+  listeningTimeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  listeningTimeText: {
+    fontSize: 11,
+    color: '#C2410C',
+    fontWeight: '600',
+  },
+  listeningOneTimeHint: {
+    fontSize: 11,
+    color: '#9A3412',
+    marginTop: 6,
+    fontStyle: 'italic',
   },
 });

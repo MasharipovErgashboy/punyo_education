@@ -23,7 +23,8 @@
       }
     },
     "plugins": [
-      "./withDisableForceDark.js"
+      "./withDisableForceDark.js",
+      "expo-audio"
     ],
     "web": {
       "favicon": "./assets/favicon.png"
