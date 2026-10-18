@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LessonDetailScreen from './LessonDetailScreen';
 
 const { width } = Dimensions.get('window');
@@ -18,6 +19,7 @@ const mockLessons = [
 ];
 
 export default function ModuleLessonsScreen({ moduleTitle = 'IELTS Writing', onBack }) {
+  const insets = useSafeAreaInsets();
   const [activeLesson, setActiveLesson] = useState(null);
 
   if (activeLesson) {
@@ -34,7 +36,7 @@ export default function ModuleLessonsScreen({ moduleTitle = 'IELTS Writing', onB
       <StatusBar style="dark" />
 
       {/* Top Banner / Header Area */}
-      <View style={styles.topArea}>
+      <View style={[styles.topArea, { paddingTop: insets.top > 0 ? insets.top + 8 : (Platform.OS === 'ios' ? 50 : 35) }]}>
         {/* Navigation Buttons */}
         <View style={styles.headerRow}>
           <TouchableOpacity style={styles.circleBtn} activeOpacity={0.8} onPress={onBack}>

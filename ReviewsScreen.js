@@ -1,9 +1,11 @@
 import React from 'react';
-import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ReviewsScreen({ onBack }) {
+  const insets = useSafeAreaInsets();
   // Mock data for all reviews
   const allReviews = [
     { id: 1, name: 'Sardor Bekmurodov', avatar: require('./assets/user1.png'), rating: 5, date: '2 kun oldin', text: 'Juda ajoyib kurs! Menga darslarning sifati va o\'qituvchining tushuntirish uslubi juda yoqdi.' },
@@ -33,7 +35,7 @@ export default function ReviewsScreen({ onBack }) {
       <StatusBar style="dark" />
       
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top > 0 ? insets.top + 8 : (Platform.OS === 'ios' ? 50 : 35) }]}>
         <TouchableOpacity onPress={onBack} style={styles.iconButton} activeOpacity={0.7}>
           <Ionicons name="arrow-back" size={24} color="#34115C" />
         </TouchableOpacity>

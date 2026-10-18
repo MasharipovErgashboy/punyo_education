@@ -1,9 +1,11 @@
 import React from 'react';
-import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function CategoryScreen({ category, onBack, onViewCourse, isTest }) {
+  const insets = useSafeAreaInsets();
   // Course mock data based on the category
   const getCourses = () => {
     if (category === 'Chet tillari') {
@@ -47,7 +49,7 @@ export default function CategoryScreen({ category, onBack, onViewCourse, isTest 
       <StatusBar style="dark" />
       
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top > 0 ? insets.top + 8 : (Platform.OS === 'ios' ? 50 : 35) }]}>
         <TouchableOpacity onPress={onBack} style={styles.backButton} activeOpacity={0.7}>
           <Ionicons name="arrow-back" size={24} color="#34115C" />
         </TouchableOpacity>

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TestAnalysisScreen from './TestAnalysisScreen';
 
 const { width } = Dimensions.get('window');
@@ -19,6 +20,7 @@ export default function TestResultScreen({
   onRetry, 
   onOtherTests 
 }) {
+  const insets = useSafeAreaInsets();
   const [showAnalysis, setShowAnalysis] = useState(false);
   const percentage = Math.round((correctCount / total) * 100);
   const isPassed = score >= passingScore;
@@ -32,7 +34,7 @@ export default function TestResultScreen({
       <StatusBar style="dark" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top > 0 ? insets.top + 8 : (Platform.OS === 'ios' ? 50 : 35) }]}>
         <Text style={styles.headerTitle}>Test yakunlandi!</Text>
       </View>
 

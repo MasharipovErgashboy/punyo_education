@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TestResultScreen from './TestResultScreen';
 
 const { width } = Dimensions.get('window');
@@ -25,6 +26,7 @@ const mockQuestions = Array.from({ length: TOTAL_QUESTIONS }).map((_, index) => 
 }));
 
 export default function TestRunnerScreen({ testTitle, onBack }) {
+  const insets = useSafeAreaInsets();
   const [currentIdx, setCurrentIdx] = useState(11); // Starting at 11 (12th question) for demo purposes
   const [answers, setAnswers] = useState({ 11: 'A' }); // Pre-fill answer for demo
   const [bookmarks, setBookmarks] = useState([13, 16]); // Pre-fill bookmarks (indices 13=14th, 16=17th) for demo
@@ -105,7 +107,7 @@ export default function TestRunnerScreen({ testTitle, onBack }) {
       <StatusBar style="dark" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top > 0 ? insets.top + 8 : (Platform.OS === 'ios' ? 50 : 35) }]}>
         <TouchableOpacity onPress={onBack} style={styles.iconBtn} activeOpacity={0.7}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>

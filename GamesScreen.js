@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions, Modal, Alert } from 'react-native';
+import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions, Modal, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
 export default function GamesScreen({ onBack }) {
+  const insets = useSafeAreaInsets();
   const [coins, setCoins] = useState(1250);
   const [dailyProgress, setDailyProgress] = useState(1); // 1 out of 2
   const [activeGameModal, setActiveGameModal] = useState(null);
@@ -57,7 +59,7 @@ export default function GamesScreen({ onBack }) {
       <StatusBar style="dark" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top > 0 ? insets.top + 8 : (Platform.OS === 'ios' ? 50 : 35) }]}>
         <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack}>
           <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </TouchableOpacity>

@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
 const { width } = Dimensions.get('window');
 
 export default function AllGiftsScreen({ onBack, onSelectProduct }) {
+  const insets = useSafeAreaInsets();
   const [activeCategory, setActiveCategory] = useState('Barchasi');
   
   const categories = ['Barchasi', 'Elektronika', 'Kiyim-kechak', 'Vaucherlar', 'Boshqa'];
@@ -31,7 +33,10 @@ export default function AllGiftsScreen({ onBack, onSelectProduct }) {
       <StatusBar style="dark" />
       
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[
+        styles.header,
+        { paddingTop: insets.top > 0 ? insets.top + 8 : (Platform.OS === 'ios' ? 50 : 35) }
+      ]}>
         <TouchableOpacity onPress={onBack} style={styles.iconButton} activeOpacity={0.7}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>

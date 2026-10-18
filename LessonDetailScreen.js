@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
 export default function LessonDetailScreen({ lessonTitle = 'Dars 1 IELTS Introduction', onBack, onNext }) {
+  const insets = useSafeAreaInsets();
   const [isPlaying, setIsPlaying] = useState(false);
 
   return (
@@ -13,7 +15,7 @@ export default function LessonDetailScreen({ lessonTitle = 'Dars 1 IELTS Introdu
       <StatusBar style="dark" />
 
       {/* Top Video Player */}
-      <View style={styles.videoPlayerContainer}>
+      <View style={[styles.videoPlayerContainer, { height: 230 + (insets.top > 0 ? insets.top : (Platform.OS === 'ios' ? 44 : 25)) }]}>
         {/* Video Background Mockup */}
         <Image 
           source={{ uri: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80' }} 
@@ -22,7 +24,7 @@ export default function LessonDetailScreen({ lessonTitle = 'Dars 1 IELTS Introdu
         />
 
         {/* Top Overlay Gradient Bar */}
-        <View style={styles.videoHeaderOverlay}>
+        <View style={[styles.videoHeaderOverlay, { paddingTop: insets.top > 0 ? insets.top + 8 : (Platform.OS === 'ios' ? 50 : 35) }]}>
           <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
