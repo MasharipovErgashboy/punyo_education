@@ -1025,25 +1025,14 @@ export default function Dashboard({ user, onLogout }) {
                     <FolderTree size={15} /> Kategoriya
                   </div>
                   <div 
-                    className={`nav-sub-item ${activeTab === 'courses' && coursesTab === 'sales' ? 'active' : ''}`}
+                    className={`nav-sub-item ${activeTab === 'courses' ? 'active' : ''}`}
                     onClick={() => {
                       setActiveTab('courses');
-                      setCoursesTab('sales');
                       fetchCourses();
                       fetchCategories();
                     }}
                   >
-                    <GraduationCap size={15} /> Kurslar (Sotuv)
-                  </div>
-                  <div 
-                    className={`nav-sub-item ${activeTab === 'courses' && coursesTab === 'internal' ? 'active' : ''}`}
-                    onClick={() => {
-                      setActiveTab('courses');
-                      setCoursesTab('internal');
-                      fetchCourses();
-                    }}
-                  >
-                    <Layers size={15} /> Kurs ichki bo'limi
+                    <GraduationCap size={15} /> Kurslar
                   </div>
                 </div>
               )}
