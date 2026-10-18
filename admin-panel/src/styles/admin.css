@@ -2804,5 +2804,108 @@ body {
   margin-top: 24px;
 }
 
+/* Multi-Question Test Cards and Add Buttons */
+.question-item-card {
+  background: #F8FAFC;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+  transition: all 0.2s ease;
+}
+
+.question-item-card:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
+}
+
+.question-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed #CBD5E1;
+}
+
+.question-item-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: #EDE9FE;
+  color: #7C3AED;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.btn-remove-question {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: #FEE2E2;
+  color: #DC2626;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-remove-question:hover {
+  background: #FCA5A5;
+}
+
+.btn-add-test-question {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 20px;
+  background: #FFFFFF;
+  border: 2px dashed #CBD5E1;
+  border-radius: 14px;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 10px;
+}
+
+.btn-add-test-question:hover {
+  background: #F5F3FF;
+  border-color: #7C3AED;
+  color: #7C3AED;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.1);
+}
+
+.btn-add-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: #F1F5F9;
+  border: 1px dashed #94A3B8;
+  border-radius: 8px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-add-option:hover {
+  background: #EDE9FE;
+  border-color: #7C3AED;
+  color: #7C3AED;
+}
+
+
 
 

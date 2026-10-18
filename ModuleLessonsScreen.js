@@ -131,6 +131,7 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
             correct_answer: t.correct_answer,
             reading_text: t.reading_text,
             audio_url: t.audio_url,
+            questions: t.questions || [],
             tg_bot_link: t.tg_bot_link,
             tg_channel: t.tg_channel,
             duration_minutes: t.duration_minutes || 15,

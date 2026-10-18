@@ -1012,6 +1012,7 @@ def course_tests_view(request):
                 'reading_text': t.reading_text,
                 'options': t.options or [],
                 'correct_answer': t.correct_answer,
+                'questions': t.questions or [],
                 'tg_bot_link': t.tg_bot_link,
                 'tg_channel': t.tg_channel,
                 'duration_minutes': t.duration_minutes or 15,
@@ -1059,6 +1060,35 @@ def course_tests_view(request):
             elif isinstance(options_raw, list):
                 options = options_raw
 
+        # Questions list parsing
+        questions_raw = request.data.get('questions')
+        questions = []
+        if questions_raw:
+            if isinstance(questions_raw, str):
+                try:
+                    questions = json.loads(questions_raw)
+                except Exception:
+                    questions = []
+            elif isinstance(questions_raw, list):
+                questions = questions_raw
+
+        if questions and len(questions) > 0:
+            first_q = questions[0]
+            if not question and first_q.get('question'):
+                question = first_q.get('question', '').strip()
+            if not options and first_q.get('options'):
+                options = first_q.get('options', [])
+            if not correct_answer and first_q.get('correct_answer'):
+                correct_answer = first_q.get('correct_answer', '').strip()
+        elif question:
+            questions = [{
+                'id': 1,
+                'question': question,
+                'options': options,
+                'correct_answer': correct_answer,
+                'reading_text': reading_text,
+            }]
+
         test_obj = CourseTest.objects.create(
             module=mod,
             title=title,
@@ -1068,6 +1098,7 @@ def course_tests_view(request):
             reading_text=reading_text,
             options=options,
             correct_answer=correct_answer,
+            questions=questions,
             tg_bot_link=tg_bot_link,
             tg_channel=tg_channel,
             duration_minutes=duration_minutes,
@@ -1092,6 +1123,7 @@ def course_tests_view(request):
                 'reading_text': test_obj.reading_text,
                 'options': test_obj.options,
                 'correct_answer': test_obj.correct_answer,
+                'questions': test_obj.questions,
                 'tg_bot_link': test_obj.tg_bot_link,
                 'tg_channel': test_obj.tg_channel,
                 'duration_minutes': test_obj.duration_minutes,
@@ -1140,6 +1172,25 @@ def course_tests_view(request):
                     test_obj.options = [opt.strip() for opt in options_raw.split(',') if opt.strip()]
             elif isinstance(options_raw, list):
                 test_obj.options = options_raw
+
+        questions_raw = request.data.get('questions')
+        if questions_raw is not None:
+            if isinstance(questions_raw, str):
+                try:
+                    test_obj.questions = json.loads(questions_raw)
+                except Exception:
+                    test_obj.questions = []
+            elif isinstance(questions_raw, list):
+                test_obj.questions = questions_raw
+
+            if test_obj.questions and len(test_obj.questions) > 0:
+                first_q = test_obj.questions[0]
+                if first_q.get('question'):
+                    test_obj.question = first_q.get('question', '').strip()
+                if first_q.get('options'):
+                    test_obj.options = first_q.get('options', [])
+                if first_q.get('correct_answer'):
+                    test_obj.correct_answer = first_q.get('correct_answer', '').strip()
 
         test_obj.save()
         return Response({'success': True, 'message': 'Test muvaffaqiyatli yangilandi!'}, status=status.HTTP_200_OK)

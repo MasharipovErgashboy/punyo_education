@@ -152,7 +152,29 @@ export default function TestRunnerScreen({ testTitle, testData, onBack, onComple
 
   const questionsList = useMemo(() => {
     if (testData?.questions && Array.isArray(testData.questions) && testData.questions.length > 0) {
-      return testData.questions;
+      const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+      return testData.questions.map((q, idx) => {
+        const rawOpts = q.options || [];
+        const formattedOpts = rawOpts.map((opt, i) => {
+          if (typeof opt === 'string') {
+            return { id: letters[i] || String(i + 1), text: opt };
+          }
+          return { id: opt.id || letters[i] || String(i + 1), text: opt.text || String(opt) };
+        });
+
+        return {
+          id: q.id || idx + 1,
+          category: (q.test_type || testData.test_type || 'Grammar').toUpperCase(),
+          points: q.points || 10,
+          question: q.question,
+          options: formattedOpts,
+          correctOption: (q.correct_answer || q.correctOption || 'A').toUpperCase().trim(),
+          explanation: q.reading_text || testData.reading_text || '',
+          audioUrl: q.audio_url || q.audioUrl || testData.audio_url || null,
+          reading_text: q.reading_text || testData.reading_text || '',
+          test_type: q.test_type || testData.test_type,
+        };
+      });
     }
     if (testData?.question) {
       const rawOpts = testData.options || [];

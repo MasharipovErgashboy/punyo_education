@@ -118,6 +118,7 @@ class CourseTest(models.Model):
     reading_text = models.TextField(blank=True, default='')
     options = models.JSONField(default=list, blank=True)
     correct_answer = models.CharField(max_length=255, blank=True, default='')
+    questions = models.JSONField(default=list, blank=True)
     tg_bot_link = models.CharField(max_length=500, blank=True, default='')
     tg_channel = models.CharField(max_length=255, blank=True, default='')
     duration_minutes = models.IntegerField(default=15, help_text="Test davomiyligi (daqiqa)")
