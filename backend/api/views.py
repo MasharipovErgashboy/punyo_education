@@ -368,7 +368,7 @@ def admin_ads_view(request):
         return Response({'success': False, 'message': 'Bunday reklama topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
 
 
-@api_view(['GET', 'POST', 'DELETE'])
+@api_view(['GET', 'POST', 'PUT', 'DELETE'])
 @permission_classes([AllowAny])
 def categories_view(request):
     if request.method == 'GET':
@@ -383,11 +383,33 @@ def categories_view(request):
             })
         return Response({'success': True, 'count': len(data), 'categories': data}, status=status.HTTP_200_OK)
 
-    elif request.method == 'POST':
+    elif request.method in ['POST', 'PUT']:
+        cat_id = request.data.get('id') or request.data.get('cat_id') or request.GET.get('id')
         name = request.data.get('name', '').strip()
         if not name:
             return Response({'success': False, 'message': 'Kategoriya nomi kiritilishi shart!'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
+        # Edit existing category
+        if cat_id:
+            cat = Category.objects.filter(id=cat_id).first()
+            if not cat:
+                return Response({'success': False, 'message': 'Kategoriya topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+            if Category.objects.filter(name__iexact=name).exclude(id=cat.id).exists():
+                return Response({'success': False, 'message': 'Bunday nomli boshqa kategoriya allaqachon mavjud!'}, status=status.HTTP_400_BAD_REQUEST)
+            cat.name = name
+            cat.save()
+            return Response({
+                'success': True,
+                'message': 'Kategoriya muvaffaqiyatli tahrirlandi!',
+                'category': {
+                    'id': cat.id,
+                    'name': cat.name,
+                    'courses_count': cat.courses.count(),
+                    'created_at': cat.created_at.strftime('%d.%m.%Y %H:%M')
+                }
+            }, status=status.HTTP_200_OK)
+
+        # Create new category
         if Category.objects.filter(name__iexact=name).exists():
             return Response({'success': False, 'message': 'Bunday kategoriya allaqachon mavjud!'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -414,7 +436,7 @@ def categories_view(request):
         return Response({'success': False, 'message': 'Kategoriya topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
 
 
-@api_view(['GET', 'POST', 'DELETE'])
+@api_view(['GET', 'POST', 'PUT', 'DELETE'])
 @permission_classes([AllowAny])
 def courses_view(request):
     if request.method == 'GET':
@@ -462,7 +484,8 @@ def courses_view(request):
             })
         return Response({'success': True, 'count': len(data), 'courses': data}, status=status.HTTP_200_OK)
 
-    elif request.method == 'POST':
+    elif request.method in ['POST', 'PUT']:
+        course_id = request.data.get('id') or request.data.get('course_id') or request.GET.get('id')
         category_id = request.data.get('category_id') or request.data.get('category')
         title = (request.data.get('title') or request.data.get('name') or '').strip()
         hint = request.data.get('hint', '').strip()
@@ -473,17 +496,97 @@ def courses_view(request):
         has_certificate_raw = request.data.get('has_certificate')
         has_certificate = str(has_certificate_raw).lower() in ['true', '1', 'yes']
         price = request.data.get('price', "0 UZS").strip()
+        icon_file = request.FILES.get('icon')
 
-        if not category_id:
-            return Response({'success': False, 'message': 'Kategoriya tanlanishi shart!'}, status=status.HTTP_400_BAD_REQUEST)
-        category = Category.objects.filter(id=category_id).first()
+        # Check Category
+        category = None
+        if category_id:
+            category = Category.objects.filter(id=category_id).first()
+            if not category:
+                return Response({'success': False, 'message': 'Bunday kategoriya topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+
+        # UPDATE COURSE
+        if course_id:
+            course = Course.objects.filter(id=course_id).first()
+            if not course:
+                return Response({'success': False, 'message': 'Tahrirlanayotgan kurs topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
+            
+            if category:
+                course.category = category
+            if title:
+                course.title = title
+            course.hint = hint
+            course.intro_video_url = intro_video_url
+            course.description = description
+            course.students_count = students_count
+            course.duration = duration
+            course.has_certificate = has_certificate
+            course.price = price
+            if icon_file:
+                course.icon = icon_file
+            course.save()
+
+            # Teachers update
+            teachers_raw = request.data.get('teachers')
+            if teachers_raw is not None:
+                try:
+                    teachers_list = json.loads(teachers_raw) if isinstance(teachers_raw, str) else teachers_raw
+                    old_teachers = list(course.teachers.all())
+                    course.teachers.all().delete()
+                    for idx, t_data in enumerate(teachers_list):
+                        t_name = t_data.get('name', '').strip()
+                        t_role = t_data.get('role', '').strip()
+                        if t_name:
+                            avatar_file = request.FILES.get(f'teacher_avatar_{idx}')
+                            if not avatar_file and idx < len(old_teachers) and old_teachers[idx].avatar:
+                                avatar_file = old_teachers[idx].avatar
+                            Teacher.objects.create(
+                                course=course,
+                                name=t_name,
+                                role=t_role,
+                                avatar=avatar_file
+                            )
+                except Exception as e:
+                    print("Error updating teachers:", e)
+
+            icon_url = request.build_absolute_uri(course.icon.url) if course.icon else None
+            teachers_res = []
+            for t in course.teachers.all():
+                avatar_url = request.build_absolute_uri(t.avatar.url) if t.avatar else None
+                teachers_res.append({
+                    'id': t.id,
+                    'name': t.name,
+                    'role': t.role,
+                    'avatar_url': avatar_url,
+                    'avatar': avatar_url
+                })
+
+            course_data = {
+                'id': course.id,
+                'category_id': course.category_id,
+                'category_name': course.category.name,
+                'title': course.title,
+                'name': course.title,
+                'hint': course.hint,
+                'icon_url': icon_url,
+                'icon': icon_url,
+                'intro_video_url': course.intro_video_url,
+                'description': course.description,
+                'students_count': course.students_count,
+                'duration': course.duration,
+                'has_certificate': course.has_certificate,
+                'price': course.price,
+                'rating': course.rating,
+                'teachers': teachers_res,
+                'created_at': course.created_at.strftime('%d.%m.%Y %H:%M')
+            }
+            return Response({'success': True, 'message': 'Kurs muvaffaqiyatli tahrirlandi!', 'course': course_data}, status=status.HTTP_200_OK)
+
+        # CREATE NEW COURSE
         if not category:
-            return Response({'success': False, 'message': 'Bunday kategoriya topilmadi!'}, status=status.HTTP_404_NOT_FOUND)
-
+            return Response({'success': False, 'message': 'Kategoriya tanlanishi shart!'}, status=status.HTTP_400_BAD_REQUEST)
         if not title:
             return Response({'success': False, 'message': 'Kurs nomi kiritilishi shart!'}, status=status.HTTP_400_BAD_REQUEST)
-
-        icon_file = request.FILES.get('icon')
 
         course = Course.objects.create(
             category=category,
@@ -498,7 +601,6 @@ def courses_view(request):
             price=price
         )
 
-        # Teachers handling
         teachers_raw = request.data.get('teachers')
         if teachers_raw:
             try:
@@ -548,7 +650,6 @@ def courses_view(request):
             'teachers': teachers_res,
             'created_at': course.created_at.strftime('%d.%m.%Y %H:%M')
         }
-
         return Response({'success': True, 'message': 'Kurs muvaffaqiyatli yaratildi!', 'course': course_data}, status=status.HTTP_201_CREATED)
 
     elif request.method == 'DELETE':

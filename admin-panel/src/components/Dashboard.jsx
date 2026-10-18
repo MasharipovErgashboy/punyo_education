@@ -45,11 +45,13 @@ export default function Dashboard({ user, onLogout }) {
   const [categoriesList, setCategoriesList] = useState([]);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [categoryNameInput, setCategoryNameInput] = useState('');
+  const [editingCategory, setEditingCategory] = useState(null);
   const [isCategorySubmitting, setIsCategorySubmitting] = useState(false);
 
   const [coursesTab, setCoursesTab] = useState('sales'); // 'sales', 'internal', 'applications', 'students'
   const [coursesList, setCoursesList] = useState([]);
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
+  const [editingCourse, setEditingCourse] = useState(null);
   const [isCourseSubmitting, setIsCourseSubmitting] = useState(false);
 
   const initialCourseForm = {
@@ -63,6 +65,7 @@ export default function Dashboard({ user, onLogout }) {
     has_certificate: true,
     price: "250,000 UZS/oy",
     icon_file: null,
+    current_icon_url: null,
     teachers: [
       { name: '', role: '', avatar_file: null }
     ]
@@ -161,6 +164,18 @@ export default function Dashboard({ user, onLogout }) {
       .catch(err => console.log("Failed to fetch courses", err));
   };
 
+  const handleOpenCreateCategory = () => {
+    setEditingCategory(null);
+    setCategoryNameInput('');
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleOpenEditCategory = (cat) => {
+    setEditingCategory(cat);
+    setCategoryNameInput(cat.name);
+    setIsCategoryModalOpen(true);
+  };
+
   const submitNewCategory = async (e) => {
     e.preventDefault();
     if (!categoryNameInput.trim()) {
@@ -169,17 +184,23 @@ export default function Dashboard({ user, onLogout }) {
     }
     setIsCategorySubmitting(true);
     try {
+      const payload = { name: categoryNameInput.trim() };
+      if (editingCategory) {
+        payload.id = editingCategory.id;
+      }
       const res = await fetch('http://192.168.0.107:8000/api/categories/', {
-        method: 'POST',
+        method: editingCategory ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: categoryNameInput.trim() })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (data.success) {
-        alert("Kategoriya muvaffaqiyatli yaratildi!");
+        alert(editingCategory ? "Kategoriya muvaffaqiyatli tahrirlandi!" : "Kategoriya muvaffaqiyatli yaratildi!");
         setCategoryNameInput('');
+        setEditingCategory(null);
         setIsCategoryModalOpen(false);
         fetchCategories();
+        fetchCourses();
       } else {
         alert(data.message || "Xatolik yuz berdi");
       }
@@ -203,6 +224,58 @@ export default function Dashboard({ user, onLogout }) {
         }
       })
       .catch(err => alert("Xatolik yuz berdi"));
+  };
+
+  const handleOpenCreateCourse = () => {
+    if (categoriesList.length === 0) {
+      alert("Kurs yaratishdan oldin kamida bitta kategoriya yaratishingiz kerak!");
+      setActiveTab('categories');
+      return;
+    }
+    setEditingCourse(null);
+    setCourseForm({
+      category_id: categoriesList[0]?.id || '',
+      title: '',
+      hint: '',
+      intro_video_url: '',
+      description: '',
+      students_count: "12k O'quvchi",
+      duration: "24 Soat video",
+      has_certificate: true,
+      price: "250,000 UZS/oy",
+      icon_file: null,
+      current_icon_url: null,
+      teachers: [
+        { name: '', role: '', avatar_file: null }
+      ]
+    });
+    setIsCourseModalOpen(true);
+  };
+
+  const handleOpenEditCourse = (c) => {
+    setEditingCourse(c);
+    setCourseForm({
+      category_id: c.category_id || '',
+      title: c.title || c.name || '',
+      hint: c.hint || '',
+      intro_video_url: c.intro_video_url || '',
+      description: c.description || '',
+      students_count: c.students_count || '',
+      duration: c.duration || '',
+      has_certificate: !!c.has_certificate,
+      price: c.price || '',
+      icon_file: null,
+      current_icon_url: c.icon_url || c.icon || null,
+      teachers: (c.teachers && c.teachers.length > 0)
+        ? c.teachers.map(t => ({
+            name: t.name,
+            role: t.role,
+            avatar_file: null,
+            current_avatar: t.avatar_url || t.avatar || null
+          }))
+        : [{ name: '', role: '', avatar_file: null }]
+    });
+    setIsCourseModalOpen(true);
   };
 
   const handleAddTeacherField = () => {
@@ -237,9 +310,16 @@ export default function Dashboard({ user, onLogout }) {
       alert("Iltimos, kurs nomini kiriting!");
       return;
     }
+    if (!editingCourse && !courseForm.icon_file) {
+      alert("Iltimos, kurs ikonkasi rasmini tanlang!");
+      return;
+    }
 
     setIsCourseSubmitting(true);
     const formData = new FormData();
+    if (editingCourse) {
+      formData.append('id', editingCourse.id);
+    }
     formData.append('category_id', courseForm.category_id);
     formData.append('title', courseForm.title.trim());
     formData.append('hint', courseForm.hint.trim());
@@ -273,8 +353,9 @@ export default function Dashboard({ user, onLogout }) {
       });
       const data = await res.json();
       if (data.success) {
-        alert("Kurs muvaffaqiyatli yaratildi!");
+        alert(editingCourse ? "Kurs muvaffaqiyatli tahrirlandi!" : "Kurs muvaffaqiyatli yaratildi!");
         setIsCourseModalOpen(false);
+        setEditingCourse(null);
         setCourseForm(initialCourseForm);
         fetchCourses();
       } else {
@@ -889,10 +970,7 @@ export default function Dashboard({ user, onLogout }) {
               </div>
               <button 
                 className="btn-action-purple"
-                onClick={() => {
-                  setCategoryNameInput('');
-                  setIsCategoryModalOpen(true);
-                }}
+                onClick={handleOpenCreateCategory}
               >
                 <Plus size={18} /> Kategoriya yaratish
               </button>
@@ -928,13 +1006,23 @@ export default function Dashboard({ user, onLogout }) {
                         </td>
                         <td style={{ color: '#64748B', fontSize: 13 }}>{cat.created_at}</td>
                         <td style={{ textAlign: 'right' }}>
-                          <button 
-                            className="btn-delete-ad"
-                            title="O'chirish"
-                            onClick={() => handleDeleteCategory(cat.id)}
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                            <button 
+                              className="btn-edit-user"
+                              title="Tahrirlash"
+                              style={{ background: '#EDE9FE', color: '#7C3AED', border: 'none', padding: '6px 12px', borderRadius: 8, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600 }}
+                              onClick={() => handleOpenEditCategory(cat)}
+                            >
+                              <Edit size={14} /> Tahrirlash
+                            </button>
+                            <button 
+                              className="btn-delete-ad"
+                              title="O'chirish"
+                              onClick={() => handleDeleteCategory(cat.id)}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -987,20 +1075,12 @@ export default function Dashboard({ user, onLogout }) {
                       Kurslar (Sotuv Bo'limi)
                     </h2>
                     <p style={{ color: '#64748B', fontSize: 13 }}>
-                      Mobil ilovadagi Kurslar sahifasida ko'rinadigan barcha kurslar.
+                      Mobil ilovadagi Kurslar sahifasida ko'rinadigan barcha kurslar jadvali.
                     </p>
                   </div>
                   <button 
                     className="btn-action-purple"
-                    onClick={() => {
-                      if (categoriesList.length === 0) {
-                        alert("Kurs yaratishdan oldin kamida bitta kategoriya yaratishingiz kerak!");
-                        setActiveTab('categories');
-                        return;
-                      }
-                      setCourseForm({ ...initialCourseForm, category_id: categoriesList[0]?.id || '' });
-                      setIsCourseModalOpen(true);
-                    }}
+                    onClick={handleOpenCreateCourse}
                   >
                     <Plus size={18} /> Kurs yaratish
                   </button>
@@ -1017,63 +1097,115 @@ export default function Dashboard({ user, onLogout }) {
                     </p>
                     <button 
                       className="btn-action-purple"
-                      onClick={() => {
-                        if (categoriesList.length === 0) {
-                          alert("Avval kategoriya yarating!");
-                          setActiveTab('categories');
-                          return;
-                        }
-                        setCourseForm({ ...initialCourseForm, category_id: categoriesList[0]?.id || '' });
-                        setIsCourseModalOpen(true);
-                      }}
+                      onClick={handleOpenCreateCourse}
                     >
                       <Plus size={18} /> Birinchi Kursni Yaratish
                     </button>
                   </div>
                 ) : (
-                  <div className="courses-grid-cards">
-                    {coursesList.map(c => (
-                      <div key={c.id} className="course-admin-card">
-                        <div className="course-card-top">
-                          {c.icon_url ? (
-                            <img src={c.icon_url} alt={c.title} className="course-card-icon" />
-                          ) : (
-                            <div className="course-card-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7C3AED' }}>
-                              <GraduationCap size={28} />
-                            </div>
-                          )}
-                          <div className="course-card-meta">
-                            <span className="course-badge-category">{c.category_name}</span>
-                            <h4 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', margin: 0 }}>{c.title}</h4>
-                            <span style={{ fontSize: 12, color: '#64748B' }}>{c.hint || 'Daraja ko\'rsatilmagan'}</span>
-                          </div>
-                        </div>
-
-                        <div style={{ fontSize: 13, color: '#475569', marginBottom: 14, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                          {c.description || 'Kurs tavsifi yo\'q'}
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderTop: '1px solid #F1F5F9', borderBottom: '1px solid #F1F5F9', marginBottom: 12, fontSize: 12, color: '#64748B' }}>
-                          <span>👥 {c.students_count}</span>
-                          <span>⏱ {c.duration}</span>
-                          <span>📜 {c.has_certificate ? 'Sertifikatli' : 'Sertifikatsiz'}</span>
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
-                          <div>
-                            <div style={{ fontSize: 11, color: '#94A3B8' }}>Narxi:</div>
-                            <div style={{ fontSize: 15, fontWeight: 800, color: '#059669' }}>{c.price}</div>
-                          </div>
-                          <button 
-                            className="btn-delete-ad" 
-                            title="O'chirish"
-                            onClick={() => handleDeleteCourse(c.id)}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="data-table-container">
+                    <table className="custom-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Kurs</th>
+                          <th>Kategoriya</th>
+                          <th>Narxi</th>
+                          <th>O'quvchilar</th>
+                          <th>Davomiyligi</th>
+                          <th>Sertifikat</th>
+                          <th>O'qituvchilar</th>
+                          <th>Sana</th>
+                          <th style={{ textAlign: 'right' }}>Amallar</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {coursesList.map((c, index) => (
+                          <tr key={c.id}>
+                            <td style={{ fontWeight: 700, color: '#7C3AED' }}>#{index + 1}</td>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                {c.icon_url ? (
+                                  <img 
+                                    src={c.icon_url} 
+                                    alt={c.title} 
+                                    style={{ width: 42, height: 42, borderRadius: 10, objectFit: 'cover', background: '#F8FAFC', border: '1px solid #E2E8F0' }} 
+                                  />
+                                ) : (
+                                  <div style={{ width: 42, height: 42, borderRadius: 10, background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7C3AED' }}>
+                                    <GraduationCap size={22} />
+                                  </div>
+                                )}
+                                <div>
+                                  <div style={{ fontWeight: 700, color: '#0F172A', fontSize: 14 }}>{c.title}</div>
+                                  <div style={{ fontSize: 12, color: '#64748B' }}>{c.hint || 'Darajasiz'}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <span style={{ padding: '4px 10px', borderRadius: 8, background: '#F1F5F9', color: '#475569', fontWeight: 600, fontSize: 12 }}>
+                                {c.category_name}
+                              </span>
+                            </td>
+                            <td style={{ fontWeight: 800, color: '#059669', fontSize: 14 }}>
+                              {c.price}
+                            </td>
+                            <td style={{ color: '#475569', fontSize: 13, fontWeight: 600 }}>
+                              {c.students_count}
+                            </td>
+                            <td style={{ color: '#64748B', fontSize: 13 }}>
+                              {c.duration}
+                            </td>
+                            <td>
+                              {c.has_certificate ? (
+                                <span style={{ padding: '4px 10px', borderRadius: 8, background: '#ECFDF5', color: '#059669', fontWeight: 700, fontSize: 12 }}>
+                                  Mavjud 📜
+                                </span>
+                              ) : (
+                                <span style={{ padding: '4px 10px', borderRadius: 8, background: '#F1F5F9', color: '#94A3B8', fontWeight: 600, fontSize: 12 }}>
+                                  Yo'q
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxWidth: 220 }}>
+                                {c.teachers && c.teachers.length > 0 ? (
+                                  c.teachers.map((t, idx) => (
+                                    <span key={idx} style={{ fontSize: 11, color: '#1E293B', background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '3px 8px', borderRadius: 6, fontWeight: 500 }}>
+                                      {t.name}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span style={{ color: '#94A3B8', fontSize: 12 }}>Biriktirilmagan</span>
+                                )}
+                              </div>
+                            </td>
+                            <td style={{ color: '#64748B', fontSize: 12 }}>
+                              {c.created_at}
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                                <button 
+                                  className="btn-edit-user"
+                                  title="Tahrirlash"
+                                  style={{ background: '#EDE9FE', color: '#7C3AED', border: 'none', padding: '6px 12px', borderRadius: 8, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600 }}
+                                  onClick={() => handleOpenEditCourse(c)}
+                                >
+                                  <Edit size={14} /> Tahrirlash
+                                </button>
+                                <button 
+                                  className="btn-delete-ad" 
+                                  title="O'chirish"
+                                  onClick={() => handleDeleteCourse(c.id)}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
@@ -1214,13 +1346,13 @@ export default function Dashboard({ user, onLogout }) {
         </div>
       )}
 
-      {/* Category Creation Modal */}
+      {/* Category Creation / Edit Modal */}
       {isCategoryModalOpen && (
         <div className="modal-overlay">
           <div className="modal-container" style={{ maxWidth: 460 }}>
             <div className="modal-header">
-              <h3>Yangi Kategoriya Yaratish</h3>
-              <button className="modal-close" onClick={() => setIsCategoryModalOpen(false)}>×</button>
+              <h3>{editingCategory ? "Kategoriyani Tahrirlash" : "Yangi Kategoriya Yaratish"}</h3>
+              <button className="modal-close" onClick={() => { setIsCategoryModalOpen(false); setEditingCategory(null); }}>×</button>
             </div>
             <form onSubmit={submitNewCategory} className="modal-body">
               <div className="form-group">
@@ -1237,9 +1369,9 @@ export default function Dashboard({ user, onLogout }) {
               </div>
 
               <div className="modal-footer" style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                <button type="button" className="btn-cancel" onClick={() => setIsCategoryModalOpen(false)}>Bekor qilish</button>
+                <button type="button" className="btn-cancel" onClick={() => { setIsCategoryModalOpen(false); setEditingCategory(null); }}>Bekor qilish</button>
                 <button type="submit" className="btn-action-purple">
-                  Yaratish
+                  {editingCategory ? "Saqlash" : "Yaratish"}
                 </button>
               </div>
             </form>
@@ -1247,16 +1379,18 @@ export default function Dashboard({ user, onLogout }) {
         </div>
       )}
 
-      {/* Course Creation Modal (Sotuv Bo'limi) */}
+      {/* Course Creation / Edit Modal (Sotuv Bo'limi) */}
       {isCourseModalOpen && (
         <div className="modal-overlay">
           <div className="modal-container course-modal-container">
             <div className="modal-header">
               <div>
-                <h3 style={{ margin: 0 }}>Yangi Kurs Yaratish</h3>
-                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748B' }}>Kurs sotuv bo'limi uchun barcha parametrlarni to'ldiring</p>
+                <h3 style={{ margin: 0 }}>{editingCourse ? "Kursni Tahrirlash" : "Yangi Kurs Yaratish"}</h3>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748B' }}>
+                  {editingCourse ? "Kurs ma'lumotlarini o'zgartiring va saqlang" : "Kurs sotuv bo'limi uchun barcha parametrlarni to'ldiring"}
+                </p>
               </div>
-              <button className="modal-close" onClick={() => setIsCourseModalOpen(false)}>×</button>
+              <button className="modal-close" onClick={() => { setIsCourseModalOpen(false); setEditingCourse(null); }}>×</button>
             </div>
 
             <form onSubmit={submitNewCourse} className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -1265,8 +1399,8 @@ export default function Dashboard({ user, onLogout }) {
                 <label>1. Kategoriya Tanlang *</label>
                 <select 
                   className="modern-input"
-                  value={courseForm.category}
-                  onChange={(e) => setCourseForm({ ...courseForm, category: e.target.value })}
+                  value={courseForm.category_id}
+                  onChange={(e) => setCourseForm({ ...courseForm, category_id: e.target.value })}
                   required
                 >
                   <option value="">-- Kategoriyani tanlang --</option>
@@ -1278,19 +1412,29 @@ export default function Dashboard({ user, onLogout }) {
 
               {/* 2. Kurs icon rasmi */}
               <div className="form-group">
-                <label>2. Kurs Ikonkasi (Rasm yuklash) *</label>
+                <label>2. Kurs Ikonkasi (Rasm yuklash) {editingCourse ? "(Ixtiyoriy)" : "*"}</label>
                 <div className="file-upload-box" style={{ padding: '20px' }}>
                   <input 
                     type="file" 
                     accept="image/*" 
-                    onChange={(e) => setCourseForm({ ...courseForm, iconFile: e.target.files[0] })} 
+                    onChange={(e) => setCourseForm({ ...courseForm, icon_file: e.target.files[0] })} 
                     id="course-icon-upload"
-                    required
+                    required={!editingCourse}
                   />
-                  <label htmlFor="course-icon-upload" className="upload-label">
-                    <ImageIcon size={28} color="#7C3AED" />
+                  <label htmlFor="course-icon-upload" className="upload-label" style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+                    {courseForm.icon_file ? (
+                      <ImageIcon size={28} color="#7C3AED" />
+                    ) : courseForm.current_icon_url ? (
+                      <img src={courseForm.current_icon_url} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }} />
+                    ) : (
+                      <ImageIcon size={28} color="#7C3AED" />
+                    )}
                     <span style={{ fontSize: 13, fontWeight: 600 }}>
-                      {courseForm.iconFile ? courseForm.iconFile.name : "Kurs ikonkasi rasmini tanlash"}
+                      {courseForm.icon_file 
+                        ? courseForm.icon_file.name 
+                        : (editingCourse && courseForm.current_icon_url 
+                            ? "Mavjud rasm saqlanadi (o'zgartirish uchun bosing)" 
+                            : "Kurs ikonkasi rasmini tanlash")}
                     </span>
                   </label>
                 </div>
@@ -1304,8 +1448,8 @@ export default function Dashboard({ user, onLogout }) {
                     type="text" 
                     className="modern-input"
                     placeholder="Masalan: English A1"
-                    value={courseForm.name}
-                    onChange={(e) => setCourseForm({ ...courseForm, name: e.target.value })}
+                    value={courseForm.title}
+                    onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })}
                     required
                   />
                 </div>
@@ -1436,14 +1580,21 @@ export default function Dashboard({ user, onLogout }) {
                         />
                       </div>
 
-                      <div>
-                        <label style={{ fontSize: 11, color: '#64748B', display: 'block', marginBottom: 4 }}>O'qituvchi rasmi</label>
-                        <input 
-                          type="file" 
-                          accept="image/*"
-                          onChange={(e) => handleTeacherChange(idx, 'avatarFile', e.target.files[0])}
-                          style={{ fontSize: 12 }}
-                        />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        {t.current_avatar && !t.avatar_file && (
+                          <img src={t.current_avatar} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
+                        )}
+                        <div style={{ flex: 1 }}>
+                          <label style={{ fontSize: 11, color: '#64748B', display: 'block', marginBottom: 4 }}>
+                            O'qituvchi rasmi {t.current_avatar ? "(Mavjud rasm saqlanadi)" : ""}
+                          </label>
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={(e) => handleTeacherChange(idx, 'avatar_file', e.target.files[0])}
+                            style={{ fontSize: 12 }}
+                          />
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1465,9 +1616,9 @@ export default function Dashboard({ user, onLogout }) {
 
               {/* Footer */}
               <div className="modal-footer" style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                <button type="button" className="btn-cancel" onClick={() => setIsCourseModalOpen(false)}>Bekor qilish</button>
-                <button type="submit" className="btn-action-purple" disabled={isUploading}>
-                  {isUploading ? "Yuklanmoqda..." : "Kursni Saqlash"}
+                <button type="button" className="btn-cancel" onClick={() => { setIsCourseModalOpen(false); setEditingCourse(null); }}>Bekor qilish</button>
+                <button type="submit" className="btn-action-purple" disabled={isCourseSubmitting}>
+                  {isCourseSubmitting ? "Saqlanmoqda..." : (editingCourse ? "O'zgarishlarni Saqlash" : "Kursni Saqlash")}
                 </button>
               </div>
             </form>
