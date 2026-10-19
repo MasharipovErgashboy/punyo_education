@@ -988,6 +988,8 @@ def course_lessons_view(request):
 @api_view(['GET', 'POST', 'PUT', 'DELETE'])
 @permission_classes([AllowAny])
 def course_tests_view(request):
+    from django.core.files.storage import default_storage
+
     if request.method == 'GET':
         module_id = request.GET.get('module_id')
         course_id = request.GET.get('course_id')
@@ -1000,6 +1002,15 @@ def course_tests_view(request):
         data = []
         for t in qs:
             audio_url = request.build_absolute_uri(t.audio_file.url) if t.audio_file else None
+            qs_list = []
+            for q in (t.questions or []):
+                q_copy = dict(q)
+                if q_copy.get('audio_url') and not str(q_copy['audio_url']).startswith('http'):
+                    q_copy['audio_url'] = request.build_absolute_uri(q_copy['audio_url'])
+                elif not q_copy.get('audio_url') and audio_url:
+                    q_copy['audio_url'] = audio_url
+                qs_list.append(q_copy)
+
             data.append({
                 'id': t.id,
                 'module_id': t.module_id,
@@ -1012,7 +1023,7 @@ def course_tests_view(request):
                 'reading_text': t.reading_text,
                 'options': t.options or [],
                 'correct_answer': t.correct_answer,
-                'questions': t.questions or [],
+                'questions': qs_list,
                 'tg_bot_link': t.tg_bot_link,
                 'tg_channel': t.tg_channel,
                 'duration_minutes': t.duration_minutes or 15,
@@ -1080,6 +1091,15 @@ def course_tests_view(request):
                 options = first_q.get('options', [])
             if not correct_answer and first_q.get('correct_answer'):
                 correct_answer = first_q.get('correct_answer', '').strip()
+            if not reading_text and first_q.get('reading_text'):
+                reading_text = first_q.get('reading_text', '').strip()
+
+            # Upload individual audio files if provided
+            for idx, q in enumerate(questions):
+                q_file = request.FILES.get(f'audio_file_{idx}') or request.FILES.get(f'audio_{idx}')
+                if q_file:
+                    saved_path = default_storage.save(f"tests/audio/{q_file.name}", q_file)
+                    q['audio_url'] = request.build_absolute_uri(default_storage.url(saved_path))
         elif question:
             questions = [{
                 'id': 1,
@@ -1110,6 +1130,11 @@ def course_tests_view(request):
         mod.save(update_fields=['tests_count'])
 
         audio_url = request.build_absolute_uri(test_obj.audio_file.url) if test_obj.audio_file else None
+        if questions and len(questions) > 0 and not questions[0].get('audio_url') and audio_url:
+            questions[0]['audio_url'] = audio_url
+            test_obj.questions = questions
+            test_obj.save(update_fields=['questions'])
+
         return Response({
             'success': True,
             'message': 'Test muvaffaqiyatli yaratildi!',
@@ -1184,6 +1209,11 @@ def course_tests_view(request):
                 test_obj.questions = questions_raw
 
             if test_obj.questions and len(test_obj.questions) > 0:
+                for idx, q in enumerate(test_obj.questions):
+                    q_file = request.FILES.get(f'audio_file_{idx}') or request.FILES.get(f'audio_{idx}')
+                    if q_file:
+                        saved_path = default_storage.save(f"tests/audio/{q_file.name}", q_file)
+                        q['audio_url'] = request.build_absolute_uri(default_storage.url(saved_path))
                 first_q = test_obj.questions[0]
                 if first_q.get('question'):
                     test_obj.question = first_q.get('question', '').strip()
@@ -1191,6 +1221,8 @@ def course_tests_view(request):
                     test_obj.options = first_q.get('options', [])
                 if first_q.get('correct_answer'):
                     test_obj.correct_answer = first_q.get('correct_answer', '').strip()
+                if first_q.get('reading_text'):
+                    test_obj.reading_text = first_q.get('reading_text', '').strip()
 
         test_obj.save()
         return Response({'success': True, 'message': 'Test muvaffaqiyatli yangilandi!'}, status=status.HTTP_200_OK)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -169,7 +169,7 @@ export default function TestRunnerScreen({ testTitle, testData, onBack, onComple
           question: q.question,
           options: formattedOpts,
           correctOption: (q.correct_answer || q.correctOption || 'A').toUpperCase().trim(),
-          explanation: q.reading_text || testData.reading_text || '',
+          explanation: q.explanation || '',
           audioUrl: q.audio_url || q.audioUrl || testData.audio_url || null,
           reading_text: q.reading_text || testData.reading_text || '',
           test_type: q.test_type || testData.test_type,
@@ -193,7 +193,7 @@ export default function TestRunnerScreen({ testTitle, testData, onBack, onComple
         question: testData.question,
         options: formattedOpts,
         correctOption: (testData.correct_answer || 'A').toUpperCase().trim(),
-        explanation: testData.reading_text || '',
+        explanation: testData.explanation || '',
         audioUrl: testData.audio_url || null,
         reading_text: testData.reading_text || '',
         test_type: testData.test_type,
@@ -207,6 +207,7 @@ export default function TestRunnerScreen({ testTitle, testData, onBack, onComple
   const initialSeconds = durationMinutes * 60;
   const passingPercentage = testData?.passing_percentage ? parseInt(testData.passing_percentage, 10) : 60;
 
+  const scrollRef = useRef(null);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState({});
   const [bookmarks, setBookmarks] = useState([]);
@@ -215,6 +216,12 @@ export default function TestRunnerScreen({ testTitle, testData, onBack, onComple
   const [isPaused, setIsPaused] = useState(false);
   const [isGridExpanded, setIsGridExpanded] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+
+  useEffect(() => {
+    try {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    } catch (e) {}
+  }, [currentIdx]);
 
   useEffect(() => {
     let timer;
@@ -388,7 +395,7 @@ export default function TestRunnerScreen({ testTitle, testData, onBack, onComple
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
         {/* Progress */}
         <View style={styles.progressHeader}>
@@ -458,8 +465,8 @@ export default function TestRunnerScreen({ testTitle, testData, onBack, onComple
             })}
           </View>
 
-          {/* Explanation (Shows if answered) */}
-          {selectedAnswer && (
+          {/* Explanation (Shows if answered and explanation exists) */}
+          {selectedAnswer && Boolean(question.explanation) && (
             <View style={styles.explanationBox}>
               <View style={styles.expHeader}>
                 <Ionicons name="bulb-outline" size={16} color="#7c3aed" />

@@ -946,9 +946,42 @@ export default function Dashboard({ user, onLogout }) {
 
   const handleOpenEditTest = (test) => {
     setEditingTest(test);
-    const opts = Array.isArray(test.options) && test.options.length >= 4 
-      ? test.options 
-      : (Array.isArray(test.options) && test.options.length > 0 ? [...test.options, ...Array(Math.max(0, 4 - test.options.length)).fill('')] : ['', '', '', '']);
+    let loadedBlocks = [];
+    if (Array.isArray(test.questions) && test.questions.length > 0) {
+      loadedBlocks = test.questions.map((q, idx) => {
+        const qOpts = Array.isArray(q.options) && q.options.length >= 4 
+          ? q.options 
+          : (Array.isArray(q.options) && q.options.length > 0 ? [...q.options, ...Array(Math.max(0, 4 - q.options.length)).fill('')] : ['', '', '', '']);
+        return {
+          id: q.id || idx + 1,
+          question: q.question || '',
+          audio_file: null,
+          audio_preview_url: q.audio_url || test.audio_url || null,
+          reading_text: q.reading_text || test.reading_text || '',
+          options: qOpts,
+          correct_answer: q.correct_answer || 'A',
+          tg_bot_link: q.tg_bot_link || test.tg_bot_link || '',
+          tg_channel: q.tg_channel || test.tg_channel || '',
+        };
+      });
+    } else {
+      const opts = Array.isArray(test.options) && test.options.length >= 4 
+        ? test.options 
+        : (Array.isArray(test.options) && test.options.length > 0 ? [...test.options, ...Array(Math.max(0, 4 - test.options.length)).fill('')] : ['', '', '', '']);
+      loadedBlocks = [
+        {
+          id: test.id || 1,
+          question: test.question || '',
+          audio_file: null,
+          audio_preview_url: test.audio_url || null,
+          reading_text: test.reading_text || '',
+          options: opts,
+          correct_answer: test.correct_answer || 'A',
+          tg_bot_link: test.tg_bot_link || '',
+          tg_channel: test.tg_channel || '',
+        }
+      ];
+    }
 
     setTestForm({
       module_id: test.module_id,
@@ -959,19 +992,7 @@ export default function Dashboard({ user, onLogout }) {
       order_index: test.order_index || 1,
       tg_bot_link: test.tg_bot_link || '',
       tg_channel: test.tg_channel || '',
-      testBlocks: [
-        {
-          id: test.id,
-          question: test.question || '',
-          audio_file: null,
-          audio_preview_url: test.audio_url || null,
-          reading_text: test.reading_text || '',
-          options: opts,
-          correct_answer: test.correct_answer || 'A',
-          tg_bot_link: test.tg_bot_link || '',
-          tg_channel: test.tg_channel || '',
-        }
-      ],
+      testBlocks: loadedBlocks,
     });
     setInternalSubView('edit-test');
   };
@@ -1101,20 +1122,20 @@ export default function Dashboard({ user, onLogout }) {
       const num = i + 1;
       if (testForm.test_type === 'listening') {
         if (!b.audio_file && !b.audio_preview_url) {
-          alert(`${num}-test uchun audio faylni yuklang!`);
+          alert(`${num}-savol uchun audio faylni yuklang!`);
           return;
         }
         if (!b.question.trim()) {
-          alert(`${num}-test uchun savol matnini kiriting!`);
+          alert(`${num}-savol uchun savol matnini kiriting!`);
           return;
         }
       } else if (testForm.test_type === 'reading') {
         if (!b.reading_text || !b.reading_text.trim()) {
-          alert(`${num}-test uchun o'qish matnini kiriting!`);
+          alert(`${num}-savol uchun o'qish matnini kiriting!`);
           return;
         }
         if (!b.question.trim()) {
-          alert(`${num}-test uchun savol matnini kiriting!`);
+          alert(`${num}-savol uchun savol matnini kiriting!`);
           return;
         }
       } else if (testForm.test_type === 'writing') {
@@ -1124,12 +1145,12 @@ export default function Dashboard({ user, onLogout }) {
         }
       } else if (testForm.test_type === 'abcd') {
         if (!b.question.trim()) {
-          alert(`${num}-test uchun savol matnini kiriting!`);
+          alert(`${num}-savol uchun savol matnini kiriting!`);
           return;
         }
       } else if (testForm.test_type === 'speaking') {
         if (!b.question.trim()) {
-          alert(`${num}-mavzu uchun gapirish topshirig'ini kiriting!`);
+          alert(`${num}-topshiriq uchun gapirish topshirig'ini kiriting!`);
           return;
         }
       }
@@ -1139,73 +1160,61 @@ export default function Dashboard({ user, onLogout }) {
     const baseOrder = parseInt(testForm.order_index, 10) || (courseTests.length + 1);
 
     try {
+      const formData = new FormData();
       if (editingTest) {
-        const b = blocks[0];
-        const formData = new FormData();
         formData.append('id', editingTest.id);
-        formData.append('module_id', testForm.module_id);
-        formData.append('title', baseTitle);
-        formData.append('test_type', testForm.test_type);
-        formData.append('duration_minutes', testForm.duration_minutes || 15);
-        formData.append('passing_percentage', testForm.passing_percentage || 60);
-        formData.append('order_index', testForm.order_index);
-        formData.append('question', b.question || '');
-        formData.append('reading_text', b.reading_text || '');
-        formData.append('options', JSON.stringify((b.options || []).filter(o => o.trim() !== '')));
-        formData.append('correct_answer', b.correct_answer || 'A');
-        formData.append('tg_bot_link', b.tg_bot_link || testForm.tg_bot_link || '');
-        formData.append('tg_channel', b.tg_channel || testForm.tg_channel || '');
-        if (b.audio_file) {
-          formData.append('audio', b.audio_file);
-        }
+      }
+      formData.append('module_id', testForm.module_id);
+      formData.append('title', baseTitle);
+      formData.append('test_type', testForm.test_type);
+      formData.append('duration_minutes', testForm.duration_minutes || 15);
+      formData.append('passing_percentage', testForm.passing_percentage || 60);
+      formData.append('order_index', baseOrder);
 
-        const res = await fetch('http://192.168.0.107:8000/api/course-tests/', {
-          method: 'PUT',
-          body: formData,
-        });
-        const data = await res.json();
-        if (!data.success) {
-          alert(data.message || "Tahrirlashda xatolik yuz berdi");
-          return;
-        }
-      } else {
-        // Save each block as an independent CourseTest record
-        for (let i = 0; i < blocks.length; i++) {
-          const b = blocks[i];
-          const formData = new FormData();
-          formData.append('module_id', testForm.module_id);
-          const blockTitle = blocks.length === 1 ? baseTitle : `${baseTitle} (${i + 1}-test)`;
-          formData.append('title', blockTitle);
-          formData.append('test_type', testForm.test_type);
-          formData.append('duration_minutes', testForm.duration_minutes || 15);
-          formData.append('passing_percentage', testForm.passing_percentage || 60);
-          formData.append('order_index', baseOrder + i);
-          formData.append('question', b.question || '');
-          formData.append('reading_text', b.reading_text || '');
-          formData.append('options', JSON.stringify((b.options || []).filter(o => o.trim() !== '')));
-          formData.append('correct_answer', b.correct_answer || 'A');
-          formData.append('tg_bot_link', b.tg_bot_link || testForm.tg_bot_link || '');
-          formData.append('tg_channel', b.tg_channel || testForm.tg_channel || '');
-          if (b.audio_file) {
-            formData.append('audio', b.audio_file);
-          }
-
-          const res = await fetch('http://192.168.0.107:8000/api/course-tests/', {
-            method: 'POST',
-            body: formData,
-          });
-          const data = await res.json();
-          if (!data.success) {
-            alert(data.message || `${i + 1}-testni saqlashda xatolik yuz berdi`);
-            return;
-          }
-        }
+      const firstB = blocks[0] || {};
+      formData.append('question', firstB.question || '');
+      formData.append('reading_text', firstB.reading_text || '');
+      formData.append('options', JSON.stringify((firstB.options || []).filter(o => o.trim() !== '')));
+      formData.append('correct_answer', firstB.correct_answer || 'A');
+      formData.append('tg_bot_link', firstB.tg_bot_link || testForm.tg_bot_link || '');
+      formData.append('tg_channel', firstB.tg_channel || testForm.tg_channel || '');
+      if (firstB.audio_file) {
+        formData.append('audio', firstB.audio_file);
       }
 
-      setInternalSubView(null);
-      setIsTestModalOpen(false);
-      fetchInternalData(selectedInternalCourse.id);
-      fetchCourses();
+      const questionsData = blocks.map((b, idx) => ({
+        id: idx + 1,
+        question: b.question || '',
+        reading_text: b.reading_text || '',
+        audio_url: b.audio_preview_url || '',
+        options: (b.options || []).filter(o => o.trim() !== ''),
+        correct_answer: b.correct_answer || 'A',
+        tg_bot_link: b.tg_bot_link || testForm.tg_bot_link || '',
+        tg_channel: b.tg_channel || testForm.tg_channel || '',
+      }));
+      formData.append('questions', JSON.stringify(questionsData));
+
+      blocks.forEach((b, idx) => {
+        if (b.audio_file) {
+          formData.append(`audio_file_${idx}`, b.audio_file);
+        }
+      });
+
+      const url = 'http://192.168.0.107:8000/api/course-tests/';
+      const method = editingTest ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success) {
+        setInternalSubView(null);
+        setIsTestModalOpen(false);
+        fetchInternalData(selectedInternalCourse.id);
+        fetchCourses();
+      } else {
+        alert(data.message || "Xatolik yuz berdi");
+      }
     } catch (err) {
       alert("Tarmoq xatosi!");
     } finally {
@@ -2826,6 +2835,9 @@ export default function Dashboard({ user, onLogout }) {
                               <FileCheck size={18} color="#059669" />
                               <span>3. Test Tarkibi va Savollari</span>
                             </div>
+                            <p style={{ fontSize: 13, color: '#64748B', marginTop: 4, marginBottom: 16 }}>
+                              Bitta test ichiga bir nechta savol yoki topshiriq qo'shishingiz mumkin. Mobil ilovada ushbu savollar bitta test ichida tartib bilan alohida ekranda ochiladi.
+                            </p>
 
                             {/* 1. LISTENING */}
                             {testForm.test_type === 'listening' && (
@@ -2836,16 +2848,16 @@ export default function Dashboard({ user, onLogout }) {
                                     <div key={bItem.id || bIdx} className="question-item-card">
                                       <div className="question-item-header">
                                         <div className="question-item-badge" style={{ background: '#FFF7ED', color: '#EA580C' }}>
-                                          <Headphones size={15} /> Test #{bIdx + 1} (Eshitish)
+                                          <Headphones size={15} /> Savol #{bIdx + 1} (Eshitish)
                                         </div>
                                         {(testForm.testBlocks || []).length > 1 && (
                                           <button 
                                             type="button" 
                                             className="btn-remove-question"
                                             onClick={() => handleRemoveTestBlock(bIdx)}
-                                            title="Ushbu testni o'chirish"
+                                            title="Ushbu savolni o'chirish"
                                           >
-                                            <Trash2 size={13} /> Testni o'chirish
+                                            <Trash2 size={13} /> Savolni o'chirish
                                           </button>
                                         )}
                                       </div>
@@ -2854,10 +2866,10 @@ export default function Dashboard({ user, onLogout }) {
                                       <div className="audio-uploader-card" style={{ marginBottom: 16 }}>
                                         <UploadCloud size={32} color="#EA580C" style={{ margin: '0 auto 8px' }} />
                                         <div style={{ fontSize: 14, fontWeight: 700, color: '#9A3412', marginBottom: 4 }}>
-                                          #{bIdx + 1}-Test uchun Audio Faylni Yuklang (.mp3, .wav, .m4a) *
+                                          #{bIdx + 1}-Savol uchun Audio Faylni Yuklang (.mp3, .wav, .m4a) *
                                         </div>
                                         <p style={{ fontSize: 12, color: '#C2410C', marginBottom: 12 }}>
-                                          Ushbu testga tegishli audio suhbat yoki topshiriq faylini tanlang.
+                                          Ushbu savolga tegishli audio suhbat yoki topshiriq faylini tanlang.
                                         </p>
                                         <input 
                                           type="file" 
@@ -2971,7 +2983,7 @@ export default function Dashboard({ user, onLogout }) {
                                   className="btn-add-test-question"
                                   onClick={handleAddTestBlock}
                                 >
-                                  <Plus size={18} /> + Yangi Eshitish Testi Qo'shish ({(testForm.testBlocks || []).length + 1}-test)
+                                  <Plus size={18} /> + Yangi Eshitish Savolini Qo'shish ({(testForm.testBlocks || []).length + 1}-savol)
                                 </button>
                               </div>
                             )}
@@ -2983,16 +2995,16 @@ export default function Dashboard({ user, onLogout }) {
                                   <div key={bItem.id || bIdx} className="question-item-card">
                                     <div className="question-item-header">
                                       <div className="question-item-badge" style={{ background: '#EFF6FF', color: '#2563EB' }}>
-                                        <BookOpen size={15} /> Test #{bIdx + 1} (O'qish)
+                                        <BookOpen size={15} /> Savol #{bIdx + 1} (O'qish)
                                       </div>
                                       {(testForm.testBlocks || []).length > 1 && (
                                         <button 
                                           type="button" 
                                           className="btn-remove-question"
                                           onClick={() => handleRemoveTestBlock(bIdx)}
-                                          title="Ushbu testni o'chirish"
+                                          title="Ushbu savolni o'chirish"
                                         >
-                                          <Trash2 size={13} /> Testni o'chirish
+                                          <Trash2 size={13} /> Savolni o'chirish
                                         </button>
                                       )}
                                     </div>
@@ -3010,7 +3022,7 @@ export default function Dashboard({ user, onLogout }) {
                                       <textarea 
                                         className="modern-textarea"
                                         rows={7}
-                                        placeholder="O'quvchi ushbu testda o'qib tushunishi kerak bo'lgan matn yoki hikoyani shu yerga kiriting..."
+                                        placeholder="O'quvchi ushbu savolda o'qib tushunishi kerak bo'lgan matn yoki hikoyani shu yerga kiriting..."
                                         value={bItem.reading_text || ''}
                                         onChange={(e) => handleUpdateBlockField(bIdx, 'reading_text', e.target.value)}
                                         style={{ lineHeight: 1.6, fontSize: 14 }}
@@ -3102,7 +3114,7 @@ export default function Dashboard({ user, onLogout }) {
                                   className="btn-add-test-question"
                                   onClick={handleAddTestBlock}
                                 >
-                                  <Plus size={18} /> + Yangi O'qish Testi Qo'shish ({(testForm.testBlocks || []).length + 1}-test)
+                                  <Plus size={18} /> + Yangi O'qish Savolini Qo'shish ({(testForm.testBlocks || []).length + 1}-savol)
                                 </button>
                               </div>
                             )}
@@ -3149,7 +3161,7 @@ export default function Dashboard({ user, onLogout }) {
                                   className="btn-add-test-question"
                                   onClick={handleAddTestBlock}
                                 >
-                                  <Plus size={18} /> + Yangi Yozish Topshirig'i Qo'shish ({(testForm.testBlocks || []).length + 1}-topshiriq)
+                                  <Plus size={18} /> + Yangi Yozish Topshirig'ini Qo'shish ({(testForm.testBlocks || []).length + 1}-topshiriq)
                                 </button>
 
                                 <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 16, borderRadius: 14, color: '#475569', fontSize: 13, lineHeight: 1.5, marginTop: 14 }}>
@@ -3168,16 +3180,16 @@ export default function Dashboard({ user, onLogout }) {
                                   <div key={bItem.id || bIdx} className="question-item-card">
                                     <div className="question-item-header">
                                       <div className="question-item-badge" style={{ background: '#ECFDF5', color: '#059669' }}>
-                                        <CheckCircle2 size={15} /> Test #{bIdx + 1} (ABCD)
+                                        <CheckCircle2 size={15} /> Savol #{bIdx + 1} (ABCD)
                                       </div>
                                       {(testForm.testBlocks || []).length > 1 && (
                                         <button 
                                           type="button" 
                                           className="btn-remove-question"
                                           onClick={() => handleRemoveTestBlock(bIdx)}
-                                          title="Ushbu testni o'chirish"
+                                          title="Ushbu savolni o'chirish"
                                         >
-                                          <Trash2 size={13} /> Testni o'chirish
+                                          <Trash2 size={13} /> Savolni o'chirish
                                         </button>
                                       )}
                                     </div>
@@ -3264,7 +3276,7 @@ export default function Dashboard({ user, onLogout }) {
                                   className="btn-add-test-question"
                                   onClick={handleAddTestBlock}
                                 >
-                                  <Plus size={18} /> + Yangi ABCD Test Qo'shish ({(testForm.testBlocks || []).length + 1}-test)
+                                  <Plus size={18} /> + Yangi ABCD Savolini Qo'shish ({(testForm.testBlocks || []).length + 1}-savol)
                                 </button>
                               </div>
                             )}
@@ -3336,7 +3348,7 @@ export default function Dashboard({ user, onLogout }) {
                                   className="btn-add-test-question"
                                   onClick={handleAddTestBlock}
                                 >
-                                  <Plus size={18} /> + Yangi Gapirish Mavzusi Qo'shish ({(testForm.testBlocks || []).length + 1}-mavzu)
+                                  <Plus size={18} /> + Yangi Gapirish Mavzusini Qo'shish ({(testForm.testBlocks || []).length + 1}-mavzu)
                                 </button>
 
                                 <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', padding: 16, borderRadius: 14, color: '#9F1239', fontSize: 13, lineHeight: 1.5, marginTop: 14 }}>
