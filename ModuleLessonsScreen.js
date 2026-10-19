@@ -327,6 +327,7 @@ export default function ModuleLessonsScreen({ course, courseId, module, moduleId
   if (activeTest) {
     return (
       <TestRunnerScreen
+        key={activeTest.id || activeTest.realId}
         testTitle={activeTest.title}
         testData={activeTest}
         onBack={() => setActiveTest(null)}

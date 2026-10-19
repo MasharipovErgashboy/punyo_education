@@ -150,23 +150,24 @@ export default function Dashboard({ user, onLogout }) {
     module_id: '',
     title: '',
     test_type: 'abcd', // 'listening', 'reading', 'writing', 'abcd', 'speaking'
-    question: '',
-    audio_file: null,
-    reading_text: '',
-    options: ['', '', '', ''],
-    correct_answer: 'A',
-    questions: [
-      {
-        question: '',
-        options: ['', '', '', ''],
-        correct_answer: 'A',
-      }
-    ],
-    tg_bot_link: '',
-    tg_channel: '',
     duration_minutes: 15,
     passing_percentage: 60,
     order_index: 1,
+    tg_bot_link: '',
+    tg_channel: '',
+    testBlocks: [
+      {
+        id: 1,
+        question: '',
+        audio_file: null,
+        audio_preview_url: null,
+        reading_text: '',
+        options: ['', '', '', ''],
+        correct_answer: 'A',
+        tg_bot_link: '',
+        tg_channel: '',
+      }
+    ],
   };
   const [testForm, setTestForm] = useState(initialTestForm);
 
@@ -921,23 +922,24 @@ export default function Dashboard({ user, onLogout }) {
       module_id: defaultModId,
       title: '',
       test_type: chosenType,
-      question: '',
-      audio_file: null,
-      reading_text: '',
-      options: ['', '', '', ''],
-      correct_answer: 'A',
-      questions: [
-        {
-          question: '',
-          options: ['', '', '', ''],
-          correct_answer: 'A',
-        }
-      ],
-      tg_bot_link: '',
-      tg_channel: '',
       duration_minutes: 15,
       passing_percentage: 60,
       order_index: courseTests.length + 1,
+      tg_bot_link: '',
+      tg_channel: '',
+      testBlocks: [
+        {
+          id: 1,
+          question: '',
+          audio_file: null,
+          audio_preview_url: null,
+          reading_text: '',
+          options: ['', '', '', ''],
+          correct_answer: 'A',
+          tg_bot_link: '',
+          tg_channel: '',
+        }
+      ],
     });
     setInternalSubView('create-test');
   };
@@ -948,154 +950,132 @@ export default function Dashboard({ user, onLogout }) {
       ? test.options 
       : (Array.isArray(test.options) && test.options.length > 0 ? [...test.options, ...Array(Math.max(0, 4 - test.options.length)).fill('')] : ['', '', '', '']);
 
-    let loadedQuestions = [];
-    if (Array.isArray(test.questions) && test.questions.length > 0) {
-      loadedQuestions = test.questions.map(q => ({
-        question: q.question || '',
-        options: Array.isArray(q.options) && q.options.length > 0 ? q.options : ['', '', '', ''],
-        correct_answer: q.correct_answer || 'A',
-      }));
-    } else {
-      loadedQuestions = [{
-        question: test.question || '',
-        options: opts,
-        correct_answer: test.correct_answer || 'A',
-      }];
-    }
-
     setTestForm({
       module_id: test.module_id,
       title: test.title,
       test_type: test.test_type,
-      question: test.question || '',
-      audio_file: null,
-      reading_text: test.reading_text || '',
-      options: opts,
-      correct_answer: test.correct_answer || 'A',
-      questions: loadedQuestions,
-      tg_bot_link: test.tg_bot_link || '',
-      tg_channel: test.tg_channel || '',
       duration_minutes: test.duration_minutes || 15,
       passing_percentage: test.passing_percentage || 60,
       order_index: test.order_index || 1,
+      tg_bot_link: test.tg_bot_link || '',
+      tg_channel: test.tg_channel || '',
+      testBlocks: [
+        {
+          id: test.id,
+          question: test.question || '',
+          audio_file: null,
+          audio_preview_url: test.audio_url || null,
+          reading_text: test.reading_text || '',
+          options: opts,
+          correct_answer: test.correct_answer || 'A',
+          tg_bot_link: test.tg_bot_link || '',
+          tg_channel: test.tg_channel || '',
+        }
+      ],
     });
     setInternalSubView('edit-test');
   };
 
-  const handleAddQuestionItem = () => {
-    setTestForm(prev => {
-      const curList = Array.isArray(prev.questions) && prev.questions.length > 0 
-        ? prev.questions 
-        : [{ question: prev.question || '', options: prev.options || ['', '', '', ''], correct_answer: prev.correct_answer || 'A' }];
-      return {
-        ...prev,
-        questions: [
-          ...curList,
-          {
-            question: '',
-            options: ['', '', '', ''],
-            correct_answer: 'A',
-          }
-        ]
-      };
-    });
+  const handleAddTestBlock = () => {
+    setTestForm(prev => ({
+      ...prev,
+      testBlocks: [
+        ...(prev.testBlocks || []),
+        {
+          id: Date.now() + Math.random(),
+          question: '',
+          audio_file: null,
+          audio_preview_url: null,
+          reading_text: '',
+          options: ['', '', '', ''],
+          correct_answer: 'A',
+          tg_bot_link: '',
+          tg_channel: '',
+        }
+      ]
+    }));
   };
 
-  const handleRemoveQuestionItem = (qIdx) => {
+  const handleRemoveTestBlock = (bIdx) => {
     setTestForm(prev => {
-      const curList = Array.isArray(prev.questions) ? prev.questions : [];
-      if (curList.length <= 1) {
-        alert("Kamida bitta savol bo'lishi kerak!");
+      const curBlocks = prev.testBlocks || [];
+      if (curBlocks.length <= 1) {
+        alert("Kamida bitta test bo'lishi kerak!");
         return prev;
       }
       return {
         ...prev,
-        questions: curList.filter((_, idx) => idx !== qIdx)
+        testBlocks: curBlocks.filter((_, idx) => idx !== bIdx)
       };
     });
   };
 
-  const handleUpdateQuestionText = (qIdx, text) => {
+  const handleUpdateBlockField = (bIdx, field, value) => {
     setTestForm(prev => {
-      const curList = Array.isArray(prev.questions) && prev.questions.length > 0 
-        ? prev.questions 
-        : [{ question: prev.question || '', options: prev.options || ['', '', '', ''], correct_answer: prev.correct_answer || 'A' }];
-      const updated = [...curList];
-      updated[qIdx] = { ...updated[qIdx], question: text };
-      return {
-        ...prev,
-        questions: updated,
-        question: qIdx === 0 ? text : prev.question,
-      };
+      const curBlocks = [...(prev.testBlocks || [])];
+      curBlocks[bIdx] = { ...curBlocks[bIdx], [field]: value };
+      return { ...prev, testBlocks: curBlocks };
     });
   };
 
-  const handleUpdateQuestionOption = (qIdx, optIdx, val) => {
+  const handleBlockAudioFile = (bIdx, file) => {
     setTestForm(prev => {
-      const curList = Array.isArray(prev.questions) && prev.questions.length > 0 
-        ? prev.questions 
-        : [{ question: prev.question || '', options: prev.options || ['', '', '', ''], correct_answer: prev.correct_answer || 'A' }];
-      const updated = [...curList];
-      const newOpts = [...(updated[qIdx]?.options || ['', '', '', ''])];
-      newOpts[optIdx] = val;
-      updated[qIdx] = { ...updated[qIdx], options: newOpts };
-      return {
-        ...prev,
-        questions: updated,
-        options: qIdx === 0 ? newOpts : prev.options,
+      const curBlocks = [...(prev.testBlocks || [])];
+      curBlocks[bIdx] = {
+        ...curBlocks[bIdx],
+        audio_file: file,
+        audio_preview_url: file ? URL.createObjectURL(file) : null
       };
+      return { ...prev, testBlocks: curBlocks };
     });
   };
 
-  const handleUpdateQuestionCorrect = (qIdx, correctKey) => {
+  const handleUpdateBlockOption = (bIdx, optIdx, val) => {
     setTestForm(prev => {
-      const curList = Array.isArray(prev.questions) && prev.questions.length > 0 
-        ? prev.questions 
-        : [{ question: prev.question || '', options: prev.options || ['', '', '', ''], correct_answer: prev.correct_answer || 'A' }];
-      const updated = [...curList];
-      updated[qIdx] = { ...updated[qIdx], correct_answer: correctKey };
-      return {
-        ...prev,
-        questions: updated,
-        correct_answer: qIdx === 0 ? correctKey : prev.correct_answer,
-      };
+      const curBlocks = [...(prev.testBlocks || [])];
+      const curOpts = [...(curBlocks[bIdx]?.options || ['', '', '', ''])];
+      curOpts[optIdx] = val;
+      curBlocks[bIdx] = { ...curBlocks[bIdx], options: curOpts };
+      return { ...prev, testBlocks: curBlocks };
     });
   };
 
-  const handleAddQuestionOption = (qIdx) => {
+  const handleUpdateBlockCorrect = (bIdx, correctKey) => {
     setTestForm(prev => {
-      const curList = Array.isArray(prev.questions) && prev.questions.length > 0 
-        ? prev.questions 
-        : [{ question: prev.question || '', options: prev.options || ['', '', '', ''], correct_answer: prev.correct_answer || 'A' }];
-      const updated = [...curList];
-      const curOpts = updated[qIdx]?.options || ['', '', '', ''];
+      const curBlocks = [...(prev.testBlocks || [])];
+      curBlocks[bIdx] = { ...curBlocks[bIdx], correct_answer: correctKey };
+      return { ...prev, testBlocks: curBlocks };
+    });
+  };
+
+  const handleAddBlockOption = (bIdx) => {
+    setTestForm(prev => {
+      const curBlocks = [...(prev.testBlocks || [])];
+      const curOpts = curBlocks[bIdx]?.options || ['', '', '', ''];
       if (curOpts.length >= OPTION_LETTERS.length) {
         alert("Maksimal 8 ta variant qo'shish mumkin!");
         return prev;
       }
-      updated[qIdx] = { ...updated[qIdx], options: [...curOpts, ''] };
-      return { ...prev, questions: updated };
+      curBlocks[bIdx] = { ...curBlocks[bIdx], options: [...curOpts, ''] };
+      return { ...prev, testBlocks: curBlocks };
     });
   };
 
-  const handleRemoveQuestionOption = (qIdx, optIdx) => {
+  const handleRemoveBlockOption = (bIdx, optIdx) => {
     setTestForm(prev => {
-      const curList = Array.isArray(prev.questions) && prev.questions.length > 0 
-        ? prev.questions 
-        : [{ question: prev.question || '', options: prev.options || ['', '', '', ''], correct_answer: prev.correct_answer || 'A' }];
-      const updated = [...curList];
-      const curOpts = updated[qIdx]?.options || [];
+      const curBlocks = [...(prev.testBlocks || [])];
+      const curOpts = curBlocks[bIdx]?.options || [];
       if (curOpts.length <= 2) {
         alert("Kamida 2 ta variant bo'lishi kerak!");
         return prev;
       }
       const newOpts = curOpts.filter((_, i) => i !== optIdx);
-      let curCorrect = updated[qIdx]?.correct_answer;
+      let curCorrect = curBlocks[bIdx]?.correct_answer;
       if (curCorrect === OPTION_LETTERS[optIdx]) {
         curCorrect = 'A';
       }
-      updated[qIdx] = { ...updated[qIdx], options: newOpts, correct_answer: curCorrect };
-      return { ...prev, questions: updated };
+      curBlocks[bIdx] = { ...curBlocks[bIdx], options: newOpts, correct_answer: curCorrect };
+      return { ...prev, testBlocks: curBlocks };
     });
   };
 
@@ -1105,56 +1085,127 @@ export default function Dashboard({ user, onLogout }) {
       alert("Iltimos, avval modulni tanlang!");
       return;
     }
-    if (!testForm.title.trim()) {
+    const baseTitle = (testForm.title || '').trim();
+    if (!baseTitle) {
       alert("Test nomini kiriting!");
       return;
     }
 
+    const blocks = testForm.testBlocks && testForm.testBlocks.length > 0 
+      ? testForm.testBlocks 
+      : [{ question: '', options: ['', '', '', ''], correct_answer: 'A' }];
+
+    // Validate blocks
+    for (let i = 0; i < blocks.length; i++) {
+      const b = blocks[i];
+      const num = i + 1;
+      if (testForm.test_type === 'listening') {
+        if (!b.audio_file && !b.audio_preview_url) {
+          alert(`${num}-test uchun audio faylni yuklang!`);
+          return;
+        }
+        if (!b.question.trim()) {
+          alert(`${num}-test uchun savol matnini kiriting!`);
+          return;
+        }
+      } else if (testForm.test_type === 'reading') {
+        if (!b.reading_text || !b.reading_text.trim()) {
+          alert(`${num}-test uchun o'qish matnini kiriting!`);
+          return;
+        }
+        if (!b.question.trim()) {
+          alert(`${num}-test uchun savol matnini kiriting!`);
+          return;
+        }
+      } else if (testForm.test_type === 'writing') {
+        if (!b.question.trim()) {
+          alert(`${num}-topshiriq uchun yozish mavzusini kiriting!`);
+          return;
+        }
+      } else if (testForm.test_type === 'abcd') {
+        if (!b.question.trim()) {
+          alert(`${num}-test uchun savol matnini kiriting!`);
+          return;
+        }
+      } else if (testForm.test_type === 'speaking') {
+        if (!b.question.trim()) {
+          alert(`${num}-mavzu uchun gapirish topshirig'ini kiriting!`);
+          return;
+        }
+      }
+    }
+
     setIsTestSubmitting(true);
-    const formData = new FormData();
-    if (editingTest) {
-      formData.append('id', editingTest.id);
-    }
-    formData.append('module_id', testForm.module_id);
-    formData.append('title', testForm.title);
-    formData.append('test_type', testForm.test_type);
-
-    const questionsToSubmit = (Array.isArray(testForm.questions) && testForm.questions.length > 0)
-      ? testForm.questions
-      : [{ question: testForm.question, options: testForm.options, correct_answer: testForm.correct_answer }];
-
-    const firstQ = questionsToSubmit[0] || {};
-    formData.append('question', firstQ.question || testForm.question || '');
-    formData.append('reading_text', testForm.reading_text || '');
-    formData.append('options', JSON.stringify((firstQ.options || testForm.options || []).filter(o => o.trim() !== '')));
-    formData.append('correct_answer', firstQ.correct_answer || testForm.correct_answer || 'A');
-    formData.append('questions', JSON.stringify(questionsToSubmit));
-    formData.append('tg_bot_link', testForm.tg_bot_link || '');
-    formData.append('tg_channel', testForm.tg_channel || '');
-    formData.append('duration_minutes', testForm.duration_minutes || 15);
-    formData.append('passing_percentage', testForm.passing_percentage || 60);
-    formData.append('order_index', testForm.order_index);
-
-    if (testForm.audio_file) {
-      formData.append('audio', testForm.audio_file);
-    }
+    const baseOrder = parseInt(testForm.order_index, 10) || (courseTests.length + 1);
 
     try {
-      const url = 'http://192.168.0.107:8000/api/course-tests/';
-      const method = editingTest ? 'PUT' : 'POST';
-      const res = await fetch(url, {
-        method,
-        body: formData,
-      });
-      const data = await res.json();
-      if (data.success) {
-        setInternalSubView(null);
-        setIsTestModalOpen(false);
-        fetchInternalData(selectedInternalCourse.id);
-        fetchCourses();
+      if (editingTest) {
+        const b = blocks[0];
+        const formData = new FormData();
+        formData.append('id', editingTest.id);
+        formData.append('module_id', testForm.module_id);
+        formData.append('title', baseTitle);
+        formData.append('test_type', testForm.test_type);
+        formData.append('duration_minutes', testForm.duration_minutes || 15);
+        formData.append('passing_percentage', testForm.passing_percentage || 60);
+        formData.append('order_index', testForm.order_index);
+        formData.append('question', b.question || '');
+        formData.append('reading_text', b.reading_text || '');
+        formData.append('options', JSON.stringify((b.options || []).filter(o => o.trim() !== '')));
+        formData.append('correct_answer', b.correct_answer || 'A');
+        formData.append('tg_bot_link', b.tg_bot_link || testForm.tg_bot_link || '');
+        formData.append('tg_channel', b.tg_channel || testForm.tg_channel || '');
+        if (b.audio_file) {
+          formData.append('audio', b.audio_file);
+        }
+
+        const res = await fetch('http://192.168.0.107:8000/api/course-tests/', {
+          method: 'PUT',
+          body: formData,
+        });
+        const data = await res.json();
+        if (!data.success) {
+          alert(data.message || "Tahrirlashda xatolik yuz berdi");
+          return;
+        }
       } else {
-        alert(data.message || "Xatolik yuz berdi");
+        // Save each block as an independent CourseTest record
+        for (let i = 0; i < blocks.length; i++) {
+          const b = blocks[i];
+          const formData = new FormData();
+          formData.append('module_id', testForm.module_id);
+          const blockTitle = blocks.length === 1 ? baseTitle : `${baseTitle} (${i + 1}-test)`;
+          formData.append('title', blockTitle);
+          formData.append('test_type', testForm.test_type);
+          formData.append('duration_minutes', testForm.duration_minutes || 15);
+          formData.append('passing_percentage', testForm.passing_percentage || 60);
+          formData.append('order_index', baseOrder + i);
+          formData.append('question', b.question || '');
+          formData.append('reading_text', b.reading_text || '');
+          formData.append('options', JSON.stringify((b.options || []).filter(o => o.trim() !== '')));
+          formData.append('correct_answer', b.correct_answer || 'A');
+          formData.append('tg_bot_link', b.tg_bot_link || testForm.tg_bot_link || '');
+          formData.append('tg_channel', b.tg_channel || testForm.tg_channel || '');
+          if (b.audio_file) {
+            formData.append('audio', b.audio_file);
+          }
+
+          const res = await fetch('http://192.168.0.107:8000/api/course-tests/', {
+            method: 'POST',
+            body: formData,
+          });
+          const data = await res.json();
+          if (!data.success) {
+            alert(data.message || `${i + 1}-testni saqlashda xatolik yuz berdi`);
+            return;
+          }
+        }
       }
+
+      setInternalSubView(null);
+      setIsTestModalOpen(false);
+      fetchInternalData(selectedInternalCourse.id);
+      fetchCourses();
     } catch (err) {
       alert("Tarmoq xatosi!");
     } finally {
@@ -2779,148 +2830,148 @@ export default function Dashboard({ user, onLogout }) {
                             {/* 1. LISTENING */}
                             {testForm.test_type === 'listening' && (
                               <div>
-                                <div className="audio-uploader-card">
-                                  <UploadCloud size={36} color="#EA580C" style={{ margin: '0 auto 10px' }} />
-                                  <div style={{ fontSize: 15, fontWeight: 700, color: '#9A3412', marginBottom: 4 }}>
-                                    Audio Faylni Yuklang (.mp3, .wav, .m4a)
-                                  </div>
-                                  <p style={{ fontSize: 12, color: '#C2410C', marginBottom: 14 }}>
-                                    Talaba tinglashi kerak bo'lgan umumiy audio suhbat yoki topshiriq faylini tanlang.
-                                  </p>
-                                  <input 
-                                    type="file" 
-                                    accept="audio/*"
-                                    id="audio_upload_input"
-                                    style={{ display: 'none' }}
-                                    onChange={(e) => setTestForm({ ...testForm, audio_file: e.target.files[0] })}
-                                  />
-                                  <label 
-                                    htmlFor="audio_upload_input"
-                                    className="btn-outline" 
-                                    style={{ cursor: 'pointer', background: '#FFFFFF', padding: '8px 18px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
-                                  >
-                                    <FileAudio size={16} /> Fayl tanlash
-                                  </label>
-
-                                  {testForm.audio_file && (
-                                    <div style={{ marginTop: 12, fontSize: 13, color: '#059669', fontWeight: 700 }}>
-                                      ✓ Tanlandi: {testForm.audio_file.name} ({(testForm.audio_file.size / (1024 * 1024)).toFixed(2)} MB)
-                                    </div>
-                                  )}
-                                  {!testForm.audio_file && editingTest?.audio_url && (
-                                    <div style={{ marginTop: 12, fontSize: 13, color: '#2563EB', fontWeight: 600 }}>
-                                      🎵 Joriy audio: <audio controls src={editingTest.audio_url} style={{ height: 32, verticalAlign: 'middle', marginLeft: 8 }} />
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, marginTop: 18 }}>
-                                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>
-                                    🎧 Tinglash Savollari (Jami: {(testForm.questions || []).length} ta savol)
-                                  </div>
-                                </div>
-
-                                {(testForm.questions || []).map((qItem, qIdx) => (
-                                  <div key={qIdx} className="question-item-card">
-                                    <div className="question-item-header">
-                                      <div className="question-item-badge">
-                                        Savol #{qIdx + 1}
+                                {(testForm.testBlocks || []).map((bItem, bIdx) => {
+                                  const audioInputId = `listening_audio_file_${bIdx}`;
+                                  return (
+                                    <div key={bItem.id || bIdx} className="question-item-card">
+                                      <div className="question-item-header">
+                                        <div className="question-item-badge" style={{ background: '#FFF7ED', color: '#EA580C' }}>
+                                          <Headphones size={15} /> Test #{bIdx + 1} (Eshitish)
+                                        </div>
+                                        {(testForm.testBlocks || []).length > 1 && (
+                                          <button 
+                                            type="button" 
+                                            className="btn-remove-question"
+                                            onClick={() => handleRemoveTestBlock(bIdx)}
+                                            title="Ushbu testni o'chirish"
+                                          >
+                                            <Trash2 size={13} /> Testni o'chirish
+                                          </button>
+                                        )}
                                       </div>
-                                      {(testForm.questions || []).length > 1 && (
-                                        <button 
-                                          type="button" 
-                                          className="btn-remove-question"
-                                          onClick={() => handleRemoveQuestionItem(qIdx)}
-                                          title="Ushbu savolni o'chirish"
+
+                                      {/* Audio Upload for this specific test */}
+                                      <div className="audio-uploader-card" style={{ marginBottom: 16 }}>
+                                        <UploadCloud size={32} color="#EA580C" style={{ margin: '0 auto 8px' }} />
+                                        <div style={{ fontSize: 14, fontWeight: 700, color: '#9A3412', marginBottom: 4 }}>
+                                          #{bIdx + 1}-Test uchun Audio Faylni Yuklang (.mp3, .wav, .m4a) *
+                                        </div>
+                                        <p style={{ fontSize: 12, color: '#C2410C', marginBottom: 12 }}>
+                                          Ushbu testga tegishli audio suhbat yoki topshiriq faylini tanlang.
+                                        </p>
+                                        <input 
+                                          type="file" 
+                                          accept="audio/*"
+                                          id={audioInputId}
+                                          style={{ display: 'none' }}
+                                          onChange={(e) => handleBlockAudioFile(bIdx, e.target.files[0])}
+                                        />
+                                        <label 
+                                          htmlFor={audioInputId}
+                                          className="btn-outline" 
+                                          style={{ cursor: 'pointer', background: '#FFFFFF', padding: '8px 18px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
                                         >
-                                          <Trash2 size={13} /> Savolni o'chirish
-                                        </button>
-                                      )}
-                                    </div>
-
-                                    <div className="form-group">
-                                      <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>
-                                        {qIdx + 1}-Savol Matni *
-                                      </label>
-                                      <input 
-                                        type="text" 
-                                        className="modern-input"
-                                        placeholder="Masalan: Suhbatdoshlar dam olish kunlari qayerga borishmoqchi?"
-                                        value={qItem.question || ''}
-                                        onChange={(e) => handleUpdateQuestionText(qIdx, e.target.value)}
-                                        required
-                                      />
-                                    </div>
-
-                                    <div className="form-group" style={{ marginBottom: 4 }}>
-                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                                        <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 0 }}>
-                                          Variantlar va To'g'ri Javobni belgilash *
+                                          <FileAudio size={16} /> Fayl tanlash
                                         </label>
-                                        <button 
-                                          type="button" 
-                                          className="btn-add-option"
-                                          onClick={() => handleAddQuestionOption(qIdx)}
-                                        >
-                                          <Plus size={13} /> + Variant qo'shish
-                                        </button>
+
+                                        {bItem.audio_file && (
+                                          <div style={{ marginTop: 10, fontSize: 13, color: '#059669', fontWeight: 700 }}>
+                                            ✓ Tanlandi: {bItem.audio_file.name} ({(bItem.audio_file.size / (1024 * 1024)).toFixed(2)} MB)
+                                          </div>
+                                        )}
+                                        {!bItem.audio_file && bItem.audio_preview_url && (
+                                          <div style={{ marginTop: 10, fontSize: 13, color: '#2563EB', fontWeight: 600 }}>
+                                            🎵 Joriy audio: <audio controls src={bItem.audio_preview_url} style={{ height: 32, verticalAlign: 'middle', marginLeft: 8 }} />
+                                          </div>
+                                        )}
                                       </div>
 
-                                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                        {(qItem.options || ['', '', '', '']).map((optVal, optIdx) => {
-                                          const optKey = OPTION_LETTERS[optIdx] || String(optIdx + 1);
-                                          const isCorrect = (qItem.correct_answer || 'A') === optKey;
-                                          return (
-                                            <div key={optIdx} className={`page-option-card ${isCorrect ? 'is-correct' : ''}`}>
-                                              <input 
-                                                type="radio" 
-                                                id={`opt-list-${qIdx}-${optKey}`}
-                                                name={`correct_radio_list_${qIdx}`}
-                                                checked={isCorrect}
-                                                onChange={() => handleUpdateQuestionCorrect(qIdx, optKey)}
-                                                style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#10B981' }}
-                                              />
-                                              <label htmlFor={`opt-list-${qIdx}-${optKey}`} style={{ fontWeight: 800, fontSize: 14, color: isCorrect ? '#059669' : '#475569', minWidth: 24, cursor: 'pointer' }}>
-                                                {optKey})
-                                              </label>
-                                              <input 
-                                                type="text" 
-                                                className="modern-input"
-                                                style={{ border: 'none', background: 'transparent', padding: '4px 8px', fontSize: 14, flex: 1 }}
-                                                placeholder={`${optKey} varianti matni...`}
-                                                value={optVal || ''}
-                                                onChange={(e) => handleUpdateQuestionOption(qIdx, optIdx, e.target.value)}
-                                                required
-                                              />
-                                              {isCorrect && (
-                                                <span style={{ fontSize: 12, fontWeight: 700, color: '#059669', background: '#ECFDF5', padding: '2px 8px', borderRadius: 6, whiteSpace: 'nowrap' }}>
-                                                  To'g'ri javob ✓
-                                                </span>
-                                              )}
-                                              {(qItem.options || []).length > 2 && (
-                                                <button 
-                                                  type="button"
-                                                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: '2px 6px', fontSize: 14 }}
-                                                  onClick={() => handleRemoveQuestionOption(qIdx, optIdx)}
-                                                  title="Variantni o'chirish"
-                                                >
-                                                  ✕
-                                                </button>
-                                              )}
-                                            </div>
-                                          );
-                                        })}
+                                      {/* Savol matni */}
+                                      <div className="form-group">
+                                        <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>
+                                          #{bIdx + 1}-Savol Matni *
+                                        </label>
+                                        <input 
+                                          type="text" 
+                                          className="modern-input"
+                                          placeholder="Masalan: Suhbatdoshlar dam olish kunlari qayerga borishmoqchi?"
+                                          value={bItem.question || ''}
+                                          onChange={(e) => handleUpdateBlockField(bIdx, 'question', e.target.value)}
+                                          required
+                                        />
+                                      </div>
+
+                                      {/* Variantlar va to'g'ri javob */}
+                                      <div className="form-group" style={{ marginBottom: 4 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                          <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 0 }}>
+                                            Variantlar va To'g'ri Javobni belgilash *
+                                          </label>
+                                          <button 
+                                            type="button" 
+                                            className="btn-add-option"
+                                            onClick={() => handleAddBlockOption(bIdx)}
+                                          >
+                                            <Plus size={13} /> + Variant qo'shish
+                                          </button>
+                                        </div>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                          {(bItem.options || ['', '', '', '']).map((optVal, optIdx) => {
+                                            const optKey = OPTION_LETTERS[optIdx] || String(optIdx + 1);
+                                            const isCorrect = (bItem.correct_answer || 'A') === optKey;
+                                            return (
+                                              <div key={optIdx} className={`page-option-card ${isCorrect ? 'is-correct' : ''}`}>
+                                                <input 
+                                                  type="radio" 
+                                                  id={`opt-listening-${bIdx}-${optKey}`}
+                                                  name={`correct_radio_listening_${bIdx}`}
+                                                  checked={isCorrect}
+                                                  onChange={() => handleUpdateBlockCorrect(bIdx, optKey)}
+                                                  style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#10B981' }}
+                                                />
+                                                <label htmlFor={`opt-listening-${bIdx}-${optKey}`} style={{ fontWeight: 800, fontSize: 14, color: isCorrect ? '#059669' : '#475569', minWidth: 24, cursor: 'pointer' }}>
+                                                  {optKey})
+                                                </label>
+                                                <input 
+                                                  type="text" 
+                                                  className="modern-input"
+                                                  style={{ border: 'none', background: 'transparent', padding: '4px 8px', fontSize: 14, flex: 1 }}
+                                                  placeholder={`${optKey} varianti matni...`}
+                                                  value={optVal || ''}
+                                                  onChange={(e) => handleUpdateBlockOption(bIdx, optIdx, e.target.value)}
+                                                  required
+                                                />
+                                                {isCorrect && (
+                                                  <span style={{ fontSize: 12, fontWeight: 700, color: '#059669', background: '#ECFDF5', padding: '2px 8px', borderRadius: 6, whiteSpace: 'nowrap' }}>
+                                                    To'g'ri javob ✓
+                                                  </span>
+                                                )}
+                                                {(bItem.options || []).length > 2 && (
+                                                  <button 
+                                                    type="button"
+                                                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: '2px 6px', fontSize: 14 }}
+                                                    onClick={() => handleRemoveBlockOption(bIdx, optIdx)}
+                                                    title="Variantni o'chirish"
+                                                  >
+                                                    ✕
+                                                  </button>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
 
                                 <button 
                                   type="button" 
                                   className="btn-add-test-question"
-                                  onClick={handleAddQuestionItem}
+                                  onClick={handleAddTestBlock}
                                 >
-                                  <Plus size={18} /> + Yangi Savol Qo'shish ({(testForm.questions || []).length + 1}-savol)
+                                  <Plus size={18} /> + Yangi Eshitish Testi Qo'shish ({(testForm.testBlocks || []).length + 1}-test)
                                 </button>
                               </div>
                             )}
@@ -2928,62 +2979,61 @@ export default function Dashboard({ user, onLogout }) {
                             {/* 2. READING */}
                             {testForm.test_type === 'reading' && (
                               <div>
-                                <div className="form-group">
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                                    <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 0 }}>O'qish uchun matn (Reading Passage) *</label>
-                                    <span style={{ fontSize: 12, color: '#64748B' }}>
-                                      {testForm.reading_text ? `${testForm.reading_text.length} ta belgi | ${testForm.reading_text.split(/\s+/).filter(Boolean).length} ta so'z` : "0 ta so'z"}
-                                    </span>
-                                  </div>
-                                  <textarea 
-                                    className="modern-textarea"
-                                    rows={8}
-                                    placeholder="O'quvchi o'qib tushunishi kerak bo'lgan to'liq matn yoki maqolani shu yerga kiriting..."
-                                    value={testForm.reading_text}
-                                    onChange={(e) => setTestForm({ ...testForm, reading_text: e.target.value })}
-                                    style={{ lineHeight: 1.6, fontSize: 14 }}
-                                    required
-                                  />
-                                </div>
-
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, marginTop: 18 }}>
-                                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>
-                                    📖 Matn Yuzasidan Savollar (Jami: {(testForm.questions || []).length} ta savol)
-                                  </div>
-                                </div>
-
-                                {(testForm.questions || []).map((qItem, qIdx) => (
-                                  <div key={qIdx} className="question-item-card">
+                                {(testForm.testBlocks || []).map((bItem, bIdx) => (
+                                  <div key={bItem.id || bIdx} className="question-item-card">
                                     <div className="question-item-header">
-                                      <div className="question-item-badge">
-                                        Savol #{qIdx + 1}
+                                      <div className="question-item-badge" style={{ background: '#EFF6FF', color: '#2563EB' }}>
+                                        <BookOpen size={15} /> Test #{bIdx + 1} (O'qish)
                                       </div>
-                                      {(testForm.questions || []).length > 1 && (
+                                      {(testForm.testBlocks || []).length > 1 && (
                                         <button 
                                           type="button" 
                                           className="btn-remove-question"
-                                          onClick={() => handleRemoveQuestionItem(qIdx)}
-                                          title="Ushbu savolni o'chirish"
+                                          onClick={() => handleRemoveTestBlock(bIdx)}
+                                          title="Ushbu testni o'chirish"
                                         >
-                                          <Trash2 size={13} /> Savolni o'chirish
+                                          <Trash2 size={13} /> Testni o'chirish
                                         </button>
                                       )}
                                     </div>
 
+                                    {/* O'qish matni for this specific test */}
+                                    <div className="form-group">
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                        <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 0 }}>
+                                          #{bIdx + 1}-O'qish uchun matn (Reading Passage) *
+                                        </label>
+                                        <span style={{ fontSize: 12, color: '#64748B' }}>
+                                          {bItem.reading_text ? `${bItem.reading_text.length} ta belgi | ${bItem.reading_text.split(/\s+/).filter(Boolean).length} ta so'z` : "0 ta so'z"}
+                                        </span>
+                                      </div>
+                                      <textarea 
+                                        className="modern-textarea"
+                                        rows={7}
+                                        placeholder="O'quvchi ushbu testda o'qib tushunishi kerak bo'lgan matn yoki hikoyani shu yerga kiriting..."
+                                        value={bItem.reading_text || ''}
+                                        onChange={(e) => handleUpdateBlockField(bIdx, 'reading_text', e.target.value)}
+                                        style={{ lineHeight: 1.6, fontSize: 14 }}
+                                        required
+                                      />
+                                    </div>
+
+                                    {/* Savol matni */}
                                     <div className="form-group">
                                       <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>
-                                        {qIdx + 1}-Savol Matni *
+                                        #{bIdx + 1}-Savol Matni *
                                       </label>
                                       <input 
                                         type="text" 
                                         className="modern-input"
                                         placeholder="Masalan: Matnga ko'ra, asosiy qahramon nima sababdan sayohatga chiqdi?"
-                                        value={qItem.question || ''}
-                                        onChange={(e) => handleUpdateQuestionText(qIdx, e.target.value)}
+                                        value={bItem.question || ''}
+                                        onChange={(e) => handleUpdateBlockField(bIdx, 'question', e.target.value)}
                                         required
                                       />
                                     </div>
 
+                                    {/* Variantlar va to'g'ri javob */}
                                     <div className="form-group" style={{ marginBottom: 4 }}>
                                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                                         <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 0 }}>
@@ -2992,27 +3042,27 @@ export default function Dashboard({ user, onLogout }) {
                                         <button 
                                           type="button" 
                                           className="btn-add-option"
-                                          onClick={() => handleAddQuestionOption(qIdx)}
+                                          onClick={() => handleAddBlockOption(bIdx)}
                                         >
                                           <Plus size={13} /> + Variant qo'shish
                                         </button>
                                       </div>
 
                                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                        {(qItem.options || ['', '', '', '']).map((optVal, optIdx) => {
+                                        {(bItem.options || ['', '', '', '']).map((optVal, optIdx) => {
                                           const optKey = OPTION_LETTERS[optIdx] || String(optIdx + 1);
-                                          const isCorrect = (qItem.correct_answer || 'A') === optKey;
+                                          const isCorrect = (bItem.correct_answer || 'A') === optKey;
                                           return (
                                             <div key={optIdx} className={`page-option-card ${isCorrect ? 'is-correct' : ''}`}>
                                               <input 
                                                 type="radio" 
-                                                id={`opt-read-${qIdx}-${optKey}`}
-                                                name={`correct_radio_read_${qIdx}`}
+                                                id={`opt-reading-${bIdx}-${optKey}`}
+                                                name={`correct_radio_reading_${bIdx}`}
                                                 checked={isCorrect}
-                                                onChange={() => handleUpdateQuestionCorrect(qIdx, optKey)}
+                                                onChange={() => handleUpdateBlockCorrect(bIdx, optKey)}
                                                 style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#10B981' }}
                                               />
-                                              <label htmlFor={`opt-read-${qIdx}-${optKey}`} style={{ fontWeight: 800, fontSize: 14, color: isCorrect ? '#059669' : '#475569', minWidth: 24, cursor: 'pointer' }}>
+                                              <label htmlFor={`opt-reading-${bIdx}-${optKey}`} style={{ fontWeight: 800, fontSize: 14, color: isCorrect ? '#059669' : '#475569', minWidth: 24, cursor: 'pointer' }}>
                                                 {optKey})
                                               </label>
                                               <input 
@@ -3021,7 +3071,7 @@ export default function Dashboard({ user, onLogout }) {
                                                 style={{ border: 'none', background: 'transparent', padding: '4px 8px', fontSize: 14, flex: 1 }}
                                                 placeholder={`${optKey} varianti matni...`}
                                                 value={optVal || ''}
-                                                onChange={(e) => handleUpdateQuestionOption(qIdx, optIdx, e.target.value)}
+                                                onChange={(e) => handleUpdateBlockOption(bIdx, optIdx, e.target.value)}
                                                 required
                                               />
                                               {isCorrect && (
@@ -3029,11 +3079,11 @@ export default function Dashboard({ user, onLogout }) {
                                                   To'g'ri javob ✓
                                                 </span>
                                               )}
-                                              {(qItem.options || []).length > 2 && (
+                                              {(bItem.options || []).length > 2 && (
                                                 <button 
                                                   type="button"
                                                   style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: '2px 6px', fontSize: 14 }}
-                                                  onClick={() => handleRemoveQuestionOption(qIdx, optIdx)}
+                                                  onClick={() => handleRemoveBlockOption(bIdx, optIdx)}
                                                   title="Variantni o'chirish"
                                                 >
                                                   ✕
@@ -3050,9 +3100,9 @@ export default function Dashboard({ user, onLogout }) {
                                 <button 
                                   type="button" 
                                   className="btn-add-test-question"
-                                  onClick={handleAddQuestionItem}
+                                  onClick={handleAddTestBlock}
                                 >
-                                  <Plus size={18} /> + Yangi Savol Qo'shish ({(testForm.questions || []).length + 1}-savol)
+                                  <Plus size={18} /> + Yangi O'qish Testi Qo'shish ({(testForm.testBlocks || []).length + 1}-test)
                                 </button>
                               </div>
                             )}
@@ -3060,23 +3110,17 @@ export default function Dashboard({ user, onLogout }) {
                             {/* 3. WRITING */}
                             {testForm.test_type === 'writing' && (
                               <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>
-                                    ✍️ Yozish Topshiriqlari (Jami: {(testForm.questions || []).length} ta vazifa)
-                                  </div>
-                                </div>
-
-                                {(testForm.questions || []).map((qItem, qIdx) => (
-                                  <div key={qIdx} className="question-item-card">
+                                {(testForm.testBlocks || []).map((bItem, bIdx) => (
+                                  <div key={bItem.id || bIdx} className="question-item-card">
                                     <div className="question-item-header">
-                                      <div className="question-item-badge">
-                                        Topshiriq #{qIdx + 1}
+                                      <div className="question-item-badge" style={{ background: '#F5F3FF', color: '#7C3AED' }}>
+                                        <FileText size={15} /> Topshiriq #{bIdx + 1} (Yozish)
                                       </div>
-                                      {(testForm.questions || []).length > 1 && (
+                                      {(testForm.testBlocks || []).length > 1 && (
                                         <button 
                                           type="button" 
                                           className="btn-remove-question"
-                                          onClick={() => handleRemoveQuestionItem(qIdx)}
+                                          onClick={() => handleRemoveTestBlock(bIdx)}
                                           title="Ushbu topshiriqni o'chirish"
                                         >
                                           <Trash2 size={13} /> Topshiriqni o'chirish
@@ -3086,14 +3130,14 @@ export default function Dashboard({ user, onLogout }) {
 
                                     <div className="form-group" style={{ marginBottom: 0 }}>
                                       <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>
-                                        {qIdx + 1}-Yozish Mavzusi / Insho Topshirig'i *
+                                        #{bIdx + 1}-Yozish Mavzusi / Insho Topshirig'i *
                                       </label>
                                       <textarea 
                                         className="modern-textarea"
                                         rows={5}
                                         placeholder="Masalan: 'Texnologiyaning yoshlar hayotiga ta'siri' mavzusida kamida 150 ta so'zdan iborat insho yozing..."
-                                        value={qItem.question || ''}
-                                        onChange={(e) => handleUpdateQuestionText(qIdx, e.target.value)}
+                                        value={bItem.question || ''}
+                                        onChange={(e) => handleUpdateBlockField(bIdx, 'question', e.target.value)}
                                         required
                                       />
                                     </div>
@@ -3103,16 +3147,16 @@ export default function Dashboard({ user, onLogout }) {
                                 <button 
                                   type="button" 
                                   className="btn-add-test-question"
-                                  onClick={handleAddQuestionItem}
+                                  onClick={handleAddTestBlock}
                                 >
-                                  <Plus size={18} /> + Yangi Yozish Topshirig'i Qo'shish ({(testForm.questions || []).length + 1}-topshiriq)
+                                  <Plus size={18} /> + Yangi Yozish Topshirig'i Qo'shish ({(testForm.testBlocks || []).length + 1}-topshiriq)
                                 </button>
 
                                 <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 16, borderRadius: 14, color: '#475569', fontSize: 13, lineHeight: 1.5, marginTop: 14 }}>
                                   <div style={{ fontWeight: 800, color: '#0F172A', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                                     <HelpCircle size={16} color="#7C3AED" /> Yozish topshirig'i haqida:
                                   </div>
-                                  O'quvchi ushbu topshiriqni mobil ilovada ko'radi va ilova ichidagi maxsus matn maydonida yozma insho yozib topshiradi.
+                                  O'quvchi ushbu topshiriqni mobil ilovada alohida ko'radi va ilova ichidagi maxsus matn maydonida yozma insho yozib topshiradi.
                                 </div>
                               </div>
                             )}
@@ -3120,40 +3164,34 @@ export default function Dashboard({ user, onLogout }) {
                             {/* 4. ABCD */}
                             {testForm.test_type === 'abcd' && (
                               <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>
-                                    🎯 ABCD Savollari (Jami: {(testForm.questions || []).length} ta savol)
-                                  </div>
-                                </div>
-
-                                {(testForm.questions || []).map((qItem, qIdx) => (
-                                  <div key={qIdx} className="question-item-card">
+                                {(testForm.testBlocks || []).map((bItem, bIdx) => (
+                                  <div key={bItem.id || bIdx} className="question-item-card">
                                     <div className="question-item-header">
-                                      <div className="question-item-badge">
-                                        Savol #{qIdx + 1}
+                                      <div className="question-item-badge" style={{ background: '#ECFDF5', color: '#059669' }}>
+                                        <CheckCircle2 size={15} /> Test #{bIdx + 1} (ABCD)
                                       </div>
-                                      {(testForm.questions || []).length > 1 && (
+                                      {(testForm.testBlocks || []).length > 1 && (
                                         <button 
                                           type="button" 
                                           className="btn-remove-question"
-                                          onClick={() => handleRemoveQuestionItem(qIdx)}
-                                          title="Ushbu savolni o'chirish"
+                                          onClick={() => handleRemoveTestBlock(bIdx)}
+                                          title="Ushbu testni o'chirish"
                                         >
-                                          <Trash2 size={13} /> Savolni o'chirish
+                                          <Trash2 size={13} /> Testni o'chirish
                                         </button>
                                       )}
                                     </div>
 
                                     <div className="form-group">
                                       <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>
-                                        {qIdx + 1}-Savol Matni *
+                                        #{bIdx + 1}-Savol Matni *
                                       </label>
                                       <input 
                                         type="text" 
                                         className="modern-input"
                                         placeholder="Masalan: Quyidagi so'zlardan qaysi biri fe'l turkumiga kiradi?"
-                                        value={qItem.question || ''}
-                                        onChange={(e) => handleUpdateQuestionText(qIdx, e.target.value)}
+                                        value={bItem.question || ''}
+                                        onChange={(e) => handleUpdateBlockField(bIdx, 'question', e.target.value)}
                                         required
                                       />
                                     </div>
@@ -3166,27 +3204,27 @@ export default function Dashboard({ user, onLogout }) {
                                         <button 
                                           type="button" 
                                           className="btn-add-option"
-                                          onClick={() => handleAddQuestionOption(qIdx)}
+                                          onClick={() => handleAddBlockOption(bIdx)}
                                         >
                                           <Plus size={13} /> + Variant qo'shish
                                         </button>
                                       </div>
 
                                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                        {(qItem.options || ['', '', '', '']).map((optVal, optIdx) => {
+                                        {(bItem.options || ['', '', '', '']).map((optVal, optIdx) => {
                                           const optKey = OPTION_LETTERS[optIdx] || String(optIdx + 1);
-                                          const isCorrect = (qItem.correct_answer || 'A') === optKey;
+                                          const isCorrect = (bItem.correct_answer || 'A') === optKey;
                                           return (
                                             <div key={optIdx} className={`page-option-card ${isCorrect ? 'is-correct' : ''}`}>
                                               <input 
                                                 type="radio" 
-                                                id={`opt-abcd-${qIdx}-${optKey}`}
-                                                name={`correct_radio_abcd_${qIdx}`}
+                                                id={`opt-abcd-${bIdx}-${optKey}`}
+                                                name={`correct_radio_abcd_${bIdx}`}
                                                 checked={isCorrect}
-                                                onChange={() => handleUpdateQuestionCorrect(qIdx, optKey)}
+                                                onChange={() => handleUpdateBlockCorrect(bIdx, optKey)}
                                                 style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#10B981' }}
                                               />
-                                              <label htmlFor={`opt-abcd-${qIdx}-${optKey}`} style={{ fontWeight: 800, fontSize: 14, color: isCorrect ? '#059669' : '#475569', minWidth: 24, cursor: 'pointer' }}>
+                                              <label htmlFor={`opt-abcd-${bIdx}-${optKey}`} style={{ fontWeight: 800, fontSize: 14, color: isCorrect ? '#059669' : '#475569', minWidth: 24, cursor: 'pointer' }}>
                                                 {optKey})
                                               </label>
                                               <input 
@@ -3195,7 +3233,7 @@ export default function Dashboard({ user, onLogout }) {
                                                 style={{ border: 'none', background: 'transparent', padding: '4px 8px', fontSize: 14, flex: 1 }}
                                                 placeholder={`${optKey} varianti matni...`}
                                                 value={optVal || ''}
-                                                onChange={(e) => handleUpdateQuestionOption(qIdx, optIdx, e.target.value)}
+                                                onChange={(e) => handleUpdateBlockOption(bIdx, optIdx, e.target.value)}
                                                 required
                                               />
                                               {isCorrect && (
@@ -3203,11 +3241,11 @@ export default function Dashboard({ user, onLogout }) {
                                                   To'g'ri javob ✓
                                                 </span>
                                               )}
-                                              {(qItem.options || []).length > 2 && (
+                                              {(bItem.options || []).length > 2 && (
                                                 <button 
                                                   type="button"
                                                   style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: '2px 6px', fontSize: 14 }}
-                                                  onClick={() => handleRemoveQuestionOption(qIdx, optIdx)}
+                                                  onClick={() => handleRemoveBlockOption(bIdx, optIdx)}
                                                   title="Variantni o'chirish"
                                                 >
                                                   ✕
@@ -3224,9 +3262,9 @@ export default function Dashboard({ user, onLogout }) {
                                 <button 
                                   type="button" 
                                   className="btn-add-test-question"
-                                  onClick={handleAddQuestionItem}
+                                  onClick={handleAddTestBlock}
                                 >
-                                  <Plus size={18} /> + Yangi Savol Qo'shish ({(testForm.questions || []).length + 1}-savol)
+                                  <Plus size={18} /> + Yangi ABCD Test Qo'shish ({(testForm.testBlocks || []).length + 1}-test)
                                 </button>
                               </div>
                             )}
@@ -3234,65 +3272,59 @@ export default function Dashboard({ user, onLogout }) {
                             {/* 5. SPEAKING */}
                             {testForm.test_type === 'speaking' && (
                               <div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 16 }}>
-                                  <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Telegram Bot Havolasi *</label>
-                                    <input 
-                                      type="text" 
-                                      className="modern-input"
-                                      placeholder="Masalan: https://t.me/punyo_speaking_bot yoki @punyo_speaking_bot"
-                                      value={testForm.tg_bot_link}
-                                      onChange={(e) => setTestForm({ ...testForm, tg_bot_link: e.target.value })}
-                                      required
-                                    />
-                                  </div>
-
-                                  <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Telegram Kanal / Guruh (Username yoki ID)</label>
-                                    <input 
-                                      type="text" 
-                                      className="modern-input"
-                                      placeholder="Masalan: @punyo_submissions yoki -100123456789"
-                                      value={testForm.tg_channel}
-                                      onChange={(e) => setTestForm({ ...testForm, tg_channel: e.target.value })}
-                                    />
-                                  </div>
-                                </div>
-
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>
-                                    🎙️ Gapirish Mavzulari / Savollari (Jami: {(testForm.questions || []).length} ta savol)
-                                  </div>
-                                </div>
-
-                                {(testForm.questions || []).map((qItem, qIdx) => (
-                                  <div key={qIdx} className="question-item-card">
+                                {(testForm.testBlocks || []).map((bItem, bIdx) => (
+                                  <div key={bItem.id || bIdx} className="question-item-card">
                                     <div className="question-item-header">
-                                      <div className="question-item-badge">
-                                        Savol / Mavzu #{qIdx + 1}
+                                      <div className="question-item-badge" style={{ background: '#FFF1F2', color: '#E11D48' }}>
+                                        <Mic size={15} /> Topshiriq #{bIdx + 1} (Gapirish)
                                       </div>
-                                      {(testForm.questions || []).length > 1 && (
+                                      {(testForm.testBlocks || []).length > 1 && (
                                         <button 
                                           type="button" 
                                           className="btn-remove-question"
-                                          onClick={() => handleRemoveQuestionItem(qIdx)}
-                                          title="Ushbu savolni o'chirish"
+                                          onClick={() => handleRemoveTestBlock(bIdx)}
+                                          title="Ushbu topshiriqni o'chirish"
                                         >
-                                          <Trash2 size={13} /> Savolni o'chirish
+                                          <Trash2 size={13} /> Topshiriqni o'chirish
                                         </button>
                                       )}
                                     </div>
 
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 14 }}>
+                                      <div className="form-group" style={{ marginBottom: 0 }}>
+                                        <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Telegram Bot Havolasi *</label>
+                                        <input 
+                                          type="text" 
+                                          className="modern-input"
+                                          placeholder="Masalan: https://t.me/punyo_speaking_bot yoki @punyo_speaking_bot"
+                                          value={bItem.tg_bot_link || testForm.tg_bot_link || ''}
+                                          onChange={(e) => handleUpdateBlockField(bIdx, 'tg_bot_link', e.target.value)}
+                                          required
+                                        />
+                                      </div>
+
+                                      <div className="form-group" style={{ marginBottom: 0 }}>
+                                        <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>Telegram Kanal / Guruh (Username yoki ID)</label>
+                                        <input 
+                                          type="text" 
+                                          className="modern-input"
+                                          placeholder="Masalan: @punyo_submissions yoki -100123456789"
+                                          value={bItem.tg_channel || testForm.tg_channel || ''}
+                                          onChange={(e) => handleUpdateBlockField(bIdx, 'tg_channel', e.target.value)}
+                                        />
+                                      </div>
+                                    </div>
+
                                     <div className="form-group" style={{ marginBottom: 0 }}>
                                       <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 6 }}>
-                                        {qIdx + 1}-Gapirish Mavzusi / Savol *
+                                        #{bIdx + 1}-Gapirish Mavzusi / Savol *
                                       </label>
                                       <textarea 
                                         className="modern-textarea"
                                         rows={3}
                                         placeholder="Masalan: O'zingiz yoqtirgan kasb haqida 2 daqiqa davomida ingliz tilida gapirib bering..."
-                                        value={qItem.question || ''}
-                                        onChange={(e) => handleUpdateQuestionText(qIdx, e.target.value)}
+                                        value={bItem.question || ''}
+                                        onChange={(e) => handleUpdateBlockField(bIdx, 'question', e.target.value)}
                                         required
                                       />
                                     </div>
@@ -3302,9 +3334,9 @@ export default function Dashboard({ user, onLogout }) {
                                 <button 
                                   type="button" 
                                   className="btn-add-test-question"
-                                  onClick={handleAddQuestionItem}
+                                  onClick={handleAddTestBlock}
                                 >
-                                  <Plus size={18} /> + Yangi Gapirish Mavzusi Qo'shish ({(testForm.questions || []).length + 1}-savol)
+                                  <Plus size={18} /> + Yangi Gapirish Mavzusi Qo'shish ({(testForm.testBlocks || []).length + 1}-mavzu)
                                 </button>
 
                                 <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', padding: 16, borderRadius: 14, color: '#9F1239', fontSize: 13, lineHeight: 1.5, marginTop: 14 }}>
