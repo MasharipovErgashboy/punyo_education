@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, ImageBackground, Image, Dimensions, Animated, TouchableOpacity, StatusBar as RNStatusBar, Platform } from 'react-native';
+import { StyleSheet, Text, View, Image, Dimensions, Animated, TouchableOpacity, StatusBar as RNStatusBar, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from './HomeScreen';
 import LoginScreen from './LoginScreen';
@@ -309,11 +309,11 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <ImageBackground 
+      <Image 
         source={require('./assets/background.png')} 
-        style={styles.backgroundImage}
-        imageStyle={{ resizeMode: 'stretch' }}
-      >
+        style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', resizeMode: 'stretch' }]} 
+      />
+      <View style={styles.backgroundImage}>
         <StatusBar style="dark" backgroundColor="transparent" translucent={true} />
         
         {/* Logo Container */}
@@ -333,8 +333,7 @@ export default function App() {
           </View>
           <Text style={styles.percentageText}>{progress}%</Text>
         </View>
-
-      </ImageBackground>
+      </View>
     </View>
   );
 }
