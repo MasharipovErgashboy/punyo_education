@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions, Platform, StatusBar as RNStatusBar, Keyboard } from 'react-native';
+import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions, Platform, Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,14 +25,6 @@ export default function HomeScreen({ lang, onLogout, initialIsAuthenticated = fa
   const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
   const [userData, setUserData] = useState(null);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-
-  useEffect(() => {
-    if (Platform.OS === 'android') {
-      RNStatusBar.setTranslucent(true);
-      RNStatusBar.setBackgroundColor('transparent');
-      RNStatusBar.setBarStyle('dark-content');
-    }
-  }, []);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';

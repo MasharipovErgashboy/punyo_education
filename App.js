@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Image, Dimensions, Animated, TouchableOpacity, StatusBar as RNStatusBar, Platform } from 'react-native';
+import { StyleSheet, Text, View, Image, Dimensions, Animated, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from './HomeScreen';
 import LoginScreen from './LoginScreen';
@@ -83,12 +83,6 @@ export default function App() {
   const t = translations[lang];
 
   useEffect(() => {
-    if (Platform.OS === 'android') {
-      RNStatusBar.setTranslucent(true);
-      RNStatusBar.setBackgroundColor('transparent');
-      RNStatusBar.setBarStyle('dark-content');
-    }
-
     // Logo breathing animation
     Animated.loop(
       Animated.sequence([
